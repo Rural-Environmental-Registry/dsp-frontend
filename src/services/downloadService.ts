@@ -42,8 +42,9 @@ export async function downloadThemeFile(params: {
 
 export async function downloadFeaturesBundle(
   aoiId: string,
+  format: string,
 ): Promise<{ blob: Blob; fileName: string }> {
-  const query = new URLSearchParams({ aoiId })
+  const query = new URLSearchParams({ aoiId, format })
   const { blob, fileName } = await httpGetBlob(`downloads/features-bundle?${query.toString()}`)
   return { blob, fileName: fileName || `${aoiId}_features.zip` }
 }

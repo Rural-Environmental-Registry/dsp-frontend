@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome'
 import { faChevronDown, faChevronUp } from '@fortawesome/free-solid-svg-icons'
 import type { DetailByIdentifierDTO } from '@/types/totalizer'
@@ -14,6 +14,7 @@ import { peekInstallationConfig } from '@/services/configService'
 import { formatDate } from '@/utils/dateFormat'
 import { formatPropertyMeasures } from '@/utils/format'
 import LoadingDotsComponent from '@/components/LoadingDotsComponent.vue'
+import { formatDownloadLabel } from '@/config/downloadsUi'
 
 const props = withDefaults(
   defineProps<{
@@ -27,7 +28,7 @@ const props = withDefaults(
 
 const emit = defineEmits<{
   'select-aoi': [id: string]
-  'download-features': [id: string]
+  'download-features': [id: string, format: string]
 }>()
 
 const installation = peekInstallationConfig()
@@ -39,6 +40,16 @@ const otherIds = computed(() =>
   (props.detail.otherIds ?? []).filter((id) => id && id !== props.detail.id),
 )
 const expanded = ref(true)
+const choosingDownload = ref(false)
+
+watch(
+  () => props.downloadingFeatures,
+  (downloading) => {
+    if (downloading) {
+      choosingDownload.value = false
+    }
+  },
+)
 
 function readFieldValue(field: DetailFieldConfig): string {
   const raw = readDetailFieldValue(props.detail, field)
@@ -67,7 +78,16 @@ function onDownloadFeatures(): void {
   if (!id || !config.featuresDownload.enabled || props.downloadingFeatures) {
     return
   }
-  emit('download-features', id)
+  choosingDownload.value = !choosingDownload.value
+}
+
+function onChooseDownload(format: string): void {
+  const id = props.detail.id?.trim()
+  if (!id || !config.featuresDownload.enabled || props.downloadingFeatures) {
+    return
+  }
+  choosingDownload.value = false
+  emit('download-features', id, format)
 }
 </script>
 
@@ -161,6 +181,17 @@ function onDownloadFeatures(): void {
           <LoadingDotsComponent v-if="downloadingFeatures" />
           <template v-else>{{ config.featuresDownload.label }}</template>
         </button>
+        <div v-if="choosingDownload && !downloadingFeatures" class="download-choices">
+          <button
+            v-for="format in ['csv', 'gpkg']"
+            :key="format"
+            type="button"
+            class="download-choice"
+            @click="onChooseDownload(format)"
+          >
+            {{ formatDownloadLabel(format) }}
+          </button>
+        </div>
       </div>
     </div>
   </section>
@@ -301,11 +332,30 @@ function onDownloadFeatures(): void {
 
 .actions {
   display: flex;
-  flex-direction: row;
+  flex-direction: column;
   flex-wrap: wrap;
   justify-content: flex-start;
   align-items: flex-start;
-  gap: 16px;
+  gap: 12px;
+}
+
+.download-choices {
+  display: flex;
+  gap: 24px;
+}
+
+.download-choice {
+  padding: 0;
+  border: none;
+  background: none;
+  color: #0a2f6b;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.download-choice:hover {
+  text-decoration: underline;
 }
 
 .details-card .actions .br-button {
