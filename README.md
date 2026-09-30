@@ -1,7 +1,7 @@
 # rer-dsp-frontend
 
 > This repository is one module of the **DSP (Data Sharing Platform)**, part of the RER ecosystem.
-> Full project documentation lives in **[rer-dsp-docs](https://github.com/Rural-Environmental-Registry/rer-dsp-docs)**.
+> Full project documentation lives in **[dsp-docs](https://github.com/Rural-Environmental-Registry/dsp-docs)**.
 > The information below covers this module only, not the DSP project as a whole.
 
 ## Where this module fits in the DSP
@@ -44,3 +44,5 @@ Or, preferably, via `rer-dsp-core` (`./start.sh`), which starts the full stack.
 ## License
 
 [GNU General Public License v3.0](LICENSE)
+
+<small><strong>Copyright © 2026 Government of Brazil — Ministry of Management and Innovation in Public Services</strong></small>
