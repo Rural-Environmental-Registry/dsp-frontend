@@ -35,6 +35,25 @@
     .container { width: min(1180px, calc(100% - 48px)); margin: auto; }
     a { color: var(--dsp-green); }
 
+    .about-landing .pii-notice {
+      align-items: center;
+      width: 100%;
+      margin: 0;
+      line-height: 1.45;
+      background: var(--warning-alternative, #fff5c2);
+    }
+    .pii-notice .icon,
+    .pii-notice .close {
+      align-self: center;
+      margin-top: 0;
+      margin-bottom: 0;
+    }
+    .pii-notice .content {
+      background: transparent;
+      text-align: left;
+    }
+    .pii-notice .icon svg { width: 1.25em; height: 1.25em; }
+
     .banner { padding: 10px 3% 24px; }
     .banner-inner {
       background: var(--dsp-cream);
@@ -132,9 +151,9 @@
     .intro > .config-highlight {
       height: 100%;
     }
-    .content { padding: 24px; background: var(--dsp-panel-light); }
-    .content h3 { color: var(--text); margin-top: 0; font-size: 18px; font-weight: 600; }
-    .content p { font-size: 16px; color: var(--text); margin: 0 0 14px; text-align: justify; }
+    .card.content { padding: 24px; background: var(--dsp-panel-light); }
+    .card.content h3 { color: var(--text); margin-top: 0; font-size: 18px; font-weight: 600; }
+    .card.content p { font-size: 16px; color: var(--text); margin: 0 0 14px; text-align: justify; }
 
     .about-landing .config-highlight {
       border-radius: var(--r);
