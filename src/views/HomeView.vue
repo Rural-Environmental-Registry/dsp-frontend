@@ -483,8 +483,8 @@ const onSelectAoi = async (id: string) => {
   }
 }
 
-const onDownloadFeatures = async (aoiId: string) => {
-  if (!aoiId?.trim()) {
+const onDownloadFeatures = async (aoiId: string, format: string) => {
+  if (!aoiId?.trim() || !format?.trim()) {
     return
   }
 
@@ -492,7 +492,7 @@ const onDownloadFeatures = async (aoiId: string) => {
   featuresDownloadError.value = ''
 
   try {
-    const { blob, fileName } = await downloadFeaturesBundle(aoiId.trim())
+    const { blob, fileName } = await downloadFeaturesBundle(aoiId.trim(), format.trim())
     triggerBrowserDownload(blob, fileName)
   } catch (error) {
     console.error(error)

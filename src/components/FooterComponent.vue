@@ -56,6 +56,7 @@ const version = ref<string>(__APP_VERSION__)
 .footer-hint {
   margin: 0;
   font-size: 13px;
+  color: #fff;
   opacity: 0.9;
   max-width: 420px;
 }

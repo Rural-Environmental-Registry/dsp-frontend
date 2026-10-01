@@ -152,7 +152,7 @@ describe('DetailSearchComponent', () => {
     expect(rows[1].text()).toContain('Área')
   })
 
-  it('should render features download button enabled and emit on click', async () => {
+  it('should ask csv or gpkg before emitting the download', async () => {
     const wrapper = mount(DetailSearchComponent, {
       props: { detail },
     })
@@ -161,9 +161,31 @@ describe('DetailSearchComponent', () => {
     expect(button.exists()).toBe(true)
     expect(button.text()).toContain('Baixar feições')
     expect(button.attributes('disabled')).toBeUndefined()
+    expect(wrapper.find('.download-choices').exists()).toBe(false)
 
     await button.trigger('click')
-    expect(wrapper.emitted('download-features')).toEqual([['DF123456789012']])
+    expect(wrapper.emitted('download-features')).toBeUndefined()
+    expect(wrapper.text()).not.toMatch(/formato/i)
+    const choices = wrapper.findAll('.download-choice')
+    expect(choices.map((choice) => choice.text())).toEqual(['CSV', 'GPKG'])
+
+    await choices[0].trigger('click')
+    expect(wrapper.emitted('download-features')).toEqual([['DF123456789012', 'csv']])
+    expect(wrapper.find('.download-choices').exists()).toBe(false)
+  })
+
+  it('should hide csv and gpkg when the download button is clicked again', async () => {
+    const wrapper = mount(DetailSearchComponent, {
+      props: { detail },
+    })
+
+    const button = wrapper.find('.actions .br-button')
+    await button.trigger('click')
+    expect(wrapper.find('.download-choices').exists()).toBe(true)
+
+    await button.trigger('click')
+    expect(wrapper.find('.download-choices').exists()).toBe(false)
+    expect(wrapper.emitted('download-features')).toBeUndefined()
   })
 
   it('should disable features download button when detail has no id', () => {
@@ -207,7 +229,8 @@ describe('DetailSearchComponent', () => {
     const button = wrapper.find('.actions .br-button')
     expect(button.text()).toContain('Baixar feições')
     await button.trigger('click')
-    expect(wrapper.emitted('download-features')).toEqual([['DF123456789012']])
+    await wrapper.findAll('.download-choice')[1].trigger('click')
+    expect(wrapper.emitted('download-features')).toEqual([['DF123456789012', 'gpkg']])
   })
 
   it('should format perimeter_m attribute with two decimal places', () => {

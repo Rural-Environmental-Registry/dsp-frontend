@@ -293,10 +293,10 @@ describe('HomeView', () => {
     await flushPromises()
 
     const detail = wrapper.findComponent(DetailSearchComponent)
-    await detail.vm.$emit('download-features', 'DF123456789012')
+    await detail.vm.$emit('download-features', 'DF123456789012', 'csv')
     await flushPromises()
 
-    expect(downloadFeaturesBundle).toHaveBeenCalledWith('DF123456789012')
+    expect(downloadFeaturesBundle).toHaveBeenCalledWith('DF123456789012', 'csv')
     expect(triggerBrowserDownload).toHaveBeenCalled()
   })
 

@@ -119,10 +119,10 @@ describe('downloadService', () => {
       fileName: null,
     })
 
-    const result = await downloadFeaturesBundle('DEMO-001')
+    const result = await downloadFeaturesBundle('DEMO-001', 'gpkg')
 
     expect(httpGetBlob).toHaveBeenCalledWith(
-      'downloads/features-bundle?aoiId=DEMO-001',
+      'downloads/features-bundle?aoiId=DEMO-001&format=gpkg',
     )
     expect(result.fileName).toBe('DEMO-001_features.zip')
   })
@@ -133,7 +133,7 @@ describe('downloadService', () => {
       fileName: 'bundle.zip',
     })
 
-    const result = await downloadFeaturesBundle('DEMO-001')
+    const result = await downloadFeaturesBundle('DEMO-001', 'csv')
 
     expect(result.fileName).toBe('bundle.zip')
   })

@@ -8,14 +8,17 @@ const items: DownloadItemDTO[] = [
   {
     themeCode: 'theme_alpha',
     themeName: 'Theme Alpha',
-    formats: [{ format: 'csv', status: 'available' }],
+    formats: [
+      { format: 'csv', status: 'available' },
+      { format: 'gpkg', status: 'available' },
+    ],
     lastUpdate: '2026-06-01',
     lastFileGenerated: '2026-06-02T10:00:00Z',
   },
 ]
 
 describe('DownloadsThemesTable', () => {
-  it('should render CP-like columns and CSV download action without GPKG', () => {
+  it('should render CP-like columns and CSV/GPKG download actions', () => {
     const wrapper = mount(DownloadsThemesTable, {
       props: { items },
     })
@@ -28,7 +31,7 @@ describe('DownloadsThemesTable', () => {
     expect(wrapper.text()).toContain('01/06/2026')
     expect(wrapper.text()).toContain('02/06/2026')
     expect(wrapper.text()).toContain('CSV')
-    expect(wrapper.text()).not.toContain('GPKG')
+    expect(wrapper.text()).toContain('GPKG')
 
     const csvButton = wrapper.findAll('button.download-theme').find((button) =>
       button.text().includes('CSV'),
@@ -52,12 +55,15 @@ describe('DownloadsThemesTable', () => {
     expect(wrapper.emitted('download')?.[0]).toEqual([items[0], 'csv'])
   })
 
-  it('should show informative tooltip when csv is unavailable for the selected filter', () => {
+  it('should show informative tooltip when formats are unavailable for the selected filter', () => {
     const unavailableItems: DownloadItemDTO[] = [
       {
         themeCode: 'area_of_interest',
         themeName: 'Area of interest',
-        formats: [{ format: 'csv', status: 'unavailable' }],
+        formats: [
+          { format: 'csv', status: 'unavailable' },
+          { format: 'gpkg', status: 'unavailable' },
+        ],
         lastUpdate: null,
         lastFileGenerated: null,
       },
@@ -67,11 +73,12 @@ describe('DownloadsThemesTable', () => {
       props: { items: unavailableItems },
     })
 
-    const formatWrap = wrapper.find('.download-format-wrap')
-    expect(formatWrap.attributes('title')).toBe(
+    const buttons = wrapper.findAll('button.download-theme')
+    expect(buttons.map((button) => button.text())).toEqual(['CSV', 'GPKG'])
+    expect(buttons.every((button) => button.attributes('disabled') !== undefined)).toBe(true)
+    expect(wrapper.find('.download-format-wrap').attributes('title')).toBe(
       resolveDownloadsUiConfig().unavailableFormatTooltip,
     )
-    expect(wrapper.find('button.download-theme').attributes('disabled')).toBeDefined()
   })
 
   it('should keep last file generate column visible when the file is missing', () => {
@@ -81,7 +88,10 @@ describe('DownloadsThemesTable', () => {
           {
             themeCode: 'theme_alpha',
             themeName: 'Theme Alpha',
-            formats: [{ format: 'csv', status: 'available' }],
+            formats: [
+              { format: 'csv', status: 'available' },
+              { format: 'gpkg', status: 'available' },
+            ],
             lastUpdate: '2026-06-01',
             lastFileGenerated: null,
           },
