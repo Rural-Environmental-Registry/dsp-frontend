@@ -293,10 +293,10 @@ describe('HomeView', () => {
     await flushPromises()
 
     const detail = wrapper.findComponent(DetailSearchComponent)
-    await detail.vm.$emit('download-features', 'DF123456789012')
+    await detail.vm.$emit('download-features', 'DF123456789012', 'csv')
     await flushPromises()
 
-    expect(downloadFeaturesBundle).toHaveBeenCalledWith('DF123456789012')
+    expect(downloadFeaturesBundle).toHaveBeenCalledWith('DF123456789012', 'csv')
     expect(triggerBrowserDownload).toHaveBeenCalled()
   })
 
@@ -347,7 +347,7 @@ describe('HomeView', () => {
     expect(showSelectedAoiGeometry).toHaveBeenCalled()
     expect(showDetailButton).toHaveBeenCalled()
     expect(wrapper.text()).not.toContain('Search details')
-    expect(wrapper.text()).not.toContain('Outros próximos')
+    expect(wrapper.text()).not.toContain('Nearby areas')
     expect(wrapper.find('.data-cards-section').exists()).toBe(false)
     expect(wrapper.text()).not.toContain('Registered properties')
     expect(searchFilter.vm.form.identifier).toBe('DF-123')
@@ -358,7 +358,7 @@ describe('HomeView', () => {
     await flushPromises()
 
     expect(wrapper.text()).toContain('DF-123')
-    expect(wrapper.text()).toContain('Outros próximos')
+    expect(wrapper.text()).toContain('Nearby areas')
     expect(wrapper.text()).toContain('DF-456')
 
     const otherBtn = wrapper
@@ -604,7 +604,18 @@ describe('HomeView', () => {
     const wrapper = await mountHome()
 
     expect(wrapper.exists()).toBe(true)
+    expect(wrapper.find('.pii-notice').exists()).toBe(true)
+    expect(wrapper.text()).toContain('Notice.')
+    expect(wrapper.text()).toContain('personally identifiable information (PII)')
     expect(wrapper.text()).toContain('Data Sharing Platform')
+    expect(wrapper.text()).not.toContain('Public geospatial consultation portal')
+
+    const notice = wrapper.get('.pii-notice')
+    const title = wrapper.get('.project-name')
+    expect(notice.element.compareDocumentPosition(title.element) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+
+    await wrapper.get('[aria-label="Dismiss notice"]').trigger('click')
+    expect(wrapper.find('.pii-notice').exists()).toBe(false)
 
     const logo = wrapper.find('.br-map img')
     expect(logo.exists()).toBe(true)

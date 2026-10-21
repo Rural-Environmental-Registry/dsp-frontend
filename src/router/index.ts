@@ -27,7 +27,6 @@ const router = createRouter({
       path: '/about/platform',
       name: 'about-landing',
       component: AboutLandingView,
-      beforeEnter: ensureAboutEnabled,
     },
     {
       path: '/about',

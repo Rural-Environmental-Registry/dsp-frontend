@@ -17,9 +17,9 @@ const links = computed(() => {
   const baseLinks = [
     { to: '/', label: 'Home', name: 'home' },
     { to: '/geoservices', label: 'Downloads', name: 'geoservices' },
+    { to: '/about/platform', label: 'About DSP', name: 'about-landing' },
   ]
   if (isAboutEnabled.value) {
-    baseLinks.push({ to: '/about/platform', label: 'About DSP', name: 'about-landing' })
     baseLinks.push({ to: '/about', label: 'About', name: 'about' })
   }
   return baseLinks

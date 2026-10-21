@@ -2,7 +2,10 @@
 import { downloadsUiConfig, formatDownloadLabel } from '@/config/downloadsUi'
 import LoadingDotsComponent from '@/components/LoadingDotsComponent.vue'
 import { peekInstallationConfig } from '@/services/configService'
-import type { DownloadAvailabilityStatus, DownloadItemDTO } from '@/types/download'
+import type {
+  DownloadAvailabilityStatus,
+  DownloadItemDTO,
+} from '@/types/download'
 import { formatDate, formatDateTime } from '@/utils/dateFormat'
 
 const props = defineProps<{
@@ -62,7 +65,7 @@ function formatLastUpdate(value: string | null): string {
           <td class="col-services">
             <div class="btn-geosservices-table">
               <span
-                v-for="formatStatus in item.formats"
+                v-for="formatStatus in item.formats ?? []"
                 :key="formatStatus.format"
                 class="download-format-wrap"
                 :title="formatTooltip(formatStatus.status)"

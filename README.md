@@ -1,46 +1,87 @@
 # rer-dsp-frontend
 
-> Este repositório é um dos módulos do **DSP (Data Sharing Platform)**, parte do ecossistema RER.
-> A documentação completa do projeto está em **[rer-dsp-docs](https://github.com/Rural-Environmental-Registry/rer-dsp-docs)**.
-> As informações abaixo tratam apenas deste módulo, não do projeto DSP como um todo.
+> [!IMPORTANT]
+> This repository is one module of the **DSP (Data Sharing Platform)**, part of the RER ecosystem. Full project documentation lives in **[dsp-docs](https://github.com/Rural-Environmental-Registry/dsp-docs)**. The information below covers this module only, and only briefly.
+>
+> **[Go to the DSP documentation](https://rural-environmental-registry.github.io/dsp-docs)**
 
-## Qual parte do DSP este módulo é
+## Where this module fits in the DSP
 
 ```mermaid
 flowchart LR
-    Frontend((rer-dsp-frontend))
-    Backend[rer-dsp-backend]
-    GeoServerEx[(GeoServer Exhibition)]
+  browser["BROWSER<br/>Public map consultation."]
+  gw["GATEWAY<br/>nginx · single HTTP entry.<br/>/dsp/ · /dsp-backend/ · GeoServers."]
 
-    Frontend -- API REST --> Backend
-    Frontend -- mapas/WMS --> GeoServerEx
+  srcDb[("YOUR DATABASE<br/>Your organization's DB to migrate from.<br/>Source for the DSP.")]
+  jobMig["JOB-DATA-MIGRATION<br/>Spring Batch ETL.<br/>source → dsp-db + geoserver-db."]
+  jobGeo["JOB-GEO-FILE-GENERATION<br/>Pre-generates download files."]
+  core["CORE<br/>CONFIG · SETUP · START.<br/>Prepares DBs and orchestrates modules."]
+
+  dspDb[("DSP DB<br/>Operational: business + bbox/centroid.")]
+  gsDb[("GEOSERVER DB<br/>Full geometry dsp.*<br/>Read by both GeoServers.")]
+  objStor[("OBJECT STORAGE<br/>SeaweedFS S3.<br/>")]
+
+  be["DSP BACKEND<br/>REST API and business rules."]
+
+  gsEx["GEOSERVER-EXHIBITION<br/>Publishes layers for viewing.<br/>WMS/WFS map service."]
+  gsDl["GEOSERVER-DOWNLOAD<br/>WFS for download export.<br/>Used by the backend."]
+
+  subgraph thisRepo ["This repository"]
+    fe["DSP FRONTEND<br/>Web platform UI.<br/>Consultation, maps, sharing."]
+  end
+
+  browser --> gw
+  gw -->|/dsp/| fe
+  gw -->|/dsp-backend/| be
+  gw -->|/geoserver-exhibition/| gsEx
+
+  jobMig -->|read| srcDb
+  jobMig -->|"business + bbox/centroid"| dspDb
+  jobMig -->|"full geom"| gsDb
+  core -.config/schema/build.-> jobMig
+  core -.-> jobGeo
+  core -.-> dspDb
+  core -.-> gsDb
+  core -.-> objStor
+  core -.-> gw
+  core -.-> be
+  core -.-> fe
+  core -.-> gsEx
+  core -.-> gsDl
+
+  dspDb --> be
+  gsDb --> gsEx
+  gsDb --> gsDl
+  gsDb --> jobGeo
+  jobGeo -->|"pre-generated CSV"| objStor
+  be -->|WFS downloads| gsDl
+  be -->|CSV when available| objStor
+
+  classDef plain fill:#ffffff,color:#334155,stroke:#cbd5e1,stroke-width:1px
+  classDef here fill:#fef08a,color:#713f12,stroke:#ca8a04,stroke-width:2px
+
+  class browser,gw,srcDb,jobMig,jobGeo,core,dspDb,gsDb,objStor,be,gsEx,gsDl plain
+  class fe here
+
+  style thisRepo fill:#fef9c3,stroke:#ca8a04,stroke-width:2px,color:#713f12
 ```
 
-Downloads passam pela API do backend (que usa o GeoServer Download). O frontend de mapas fala só com o GeoServer Exhibition.
-## Objetivo
+## Purpose
 
-Interface web para visualização e compartilhamento de dados ambientais rurais entre
-instituições parceiras do RER.
+Web interface for viewing and sharing rural environmental data among RER partner institutions.
 
-## Responsabilidades
+## Responsibilities
 
-- Exibir dados ambientais e mapas (camadas WMS)
-- Consumir a API REST do `rer-dsp-backend`
-- Prover a experiência de usuário da plataforma DSP
+- Display environmental data and maps (WMS layers)
+- Consume the `rer-dsp-backend` REST API
+- Provide the DSP platform user experience
 
-## Tecnologias
+## Technologies
 
-Vue 3, Vite, TypeScript, Tailwind CS.
+Vue 3, Vite, TypeScript, Tailwind CSS.
 
-## Como executar
-
-```bash
-npm install
-npm run dev
-```
-
-Ou, preferencialmente, via `rer-dsp-core` (`./start.sh`), que sobe toda a stack.
-
-## Licença
+## License
 
 [GNU General Public License v3.0](LICENSE)
+
+<small><strong>Copyright © 2026 Government of Brazil — Ministry of Management and Innovation in Public Services</strong></small>
