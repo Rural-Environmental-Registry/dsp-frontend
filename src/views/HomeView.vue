@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
+import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome'
+import { faTriangleExclamation, faXmark } from '@fortawesome/free-solid-svg-icons'
 import SearchFilterComponent, {
   type SearchFilterPayload,
 } from '@/components/SearchFilterComponent.vue'
@@ -63,6 +65,11 @@ import {
 } from '@/services/downloadService'
 
 const pageCards = ref(getMoreContentsCards('home', false))
+const noticeVisible = ref(true)
+
+function dismissNotice() {
+  noticeVisible.value = false
+}
 onMounted(async () => {
   const aboutConfig = await getAboutConfig()
   pageCards.value = getMoreContentsCards('home', aboutConfig.enabled)
@@ -523,6 +530,30 @@ onMounted(async () => {
 
 <template>
   <div class="main-container">
+    <div v-if="noticeVisible" class="br-message warning pii-notice" role="status">
+      <div class="icon" aria-hidden="true">
+        <FontAwesomeIcon :icon="faTriangleExclamation" />
+      </div>
+      <div class="content">
+        <span class="message-title">Notice.</span>
+        <span class="message-body">
+          This system may collect and temporarily store personally identifiable information (PII)
+          necessary for its operation. This information is processed in accordance with applicable
+          law and used exclusively for the system's purposes, and is stored in a secure and
+          controlled manner.
+        </span>
+      </div>
+      <div class="close">
+        <button
+          class="br-button circle small"
+          type="button"
+          aria-label="Dismiss notice"
+          @click="dismissNotice"
+        >
+          <FontAwesomeIcon :icon="faXmark" />
+        </button>
+      </div>
+    </div>
     <div class="banner-container">
       <div class="br-map">
         <img
@@ -536,7 +567,6 @@ onMounted(async () => {
         <h1>
           <strong class="project-name"> Data Sharing Platform</strong>
         </h1>
-        <h2>Public geospatial consultation portal</h2>
       </div>
     </div>
 
@@ -613,6 +643,35 @@ onMounted(async () => {
   background: #fff;
 }
 
+.pii-notice {
+  align-items: center;
+  width: 100%;
+  margin: 0;
+  line-height: 1.45;
+  background: var(--warning-alternative, #fff5c2);
+}
+
+.pii-notice + .banner-container {
+  padding-top: 0;
+}
+
+.pii-notice .icon,
+.pii-notice .close {
+  align-self: center;
+  margin-top: 0;
+  margin-bottom: 0;
+}
+
+.pii-notice .content {
+  background: transparent;
+  text-align: left;
+}
+
+.pii-notice .icon svg {
+  width: 1.25em;
+  height: 1.25em;
+}
+
 .banner-container {
   padding-top: 10px;
   display: flex;
@@ -664,12 +723,6 @@ onMounted(async () => {
 .project-name {
   font-size: clamp(32px, 5vw, 60px);
   font-weight: 600;
-}
-
-.banner-content h2 {
-  margin: 0;
-  font-size: 24px;
-  font-weight: 100;
 }
 
 .main-page-container {

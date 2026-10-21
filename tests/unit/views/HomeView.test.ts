@@ -604,7 +604,18 @@ describe('HomeView', () => {
     const wrapper = await mountHome()
 
     expect(wrapper.exists()).toBe(true)
+    expect(wrapper.find('.pii-notice').exists()).toBe(true)
+    expect(wrapper.text()).toContain('Notice.')
+    expect(wrapper.text()).toContain('personally identifiable information (PII)')
     expect(wrapper.text()).toContain('Data Sharing Platform')
+    expect(wrapper.text()).not.toContain('Public geospatial consultation portal')
+
+    const notice = wrapper.get('.pii-notice')
+    const title = wrapper.get('.project-name')
+    expect(notice.element.compareDocumentPosition(title.element) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+
+    await wrapper.get('[aria-label="Dismiss notice"]').trigger('click')
+    expect(wrapper.find('.pii-notice').exists()).toBe(false)
 
     const logo = wrapper.find('.br-map img')
     expect(logo.exists()).toBe(true)
