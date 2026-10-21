@@ -36,6 +36,10 @@ describe('homeKpis', () => {
       expect(result.length).toBeLessThanOrEqual(MAX_HOME_KPIS)
       expect(result[0].id).toBe(PRIMARY_KPI_CODE)
       expect(result[0].title).toBe('Registered properties')
+      expect(result[0].formatAsInteger).toBe(true)
+      if (result.length > 1) {
+        expect(result[1].formatAsInteger).toBe(false)
+      }
     })
 
     it('should force primary card to first position even when order is wrong', () => {

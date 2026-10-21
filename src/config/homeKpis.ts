@@ -16,6 +16,8 @@ export interface KpiItem {
   optionalLabel?: string
   optionalValue?: number
   accentColor: string
+  /** Primary (area of interest) card: show counts and hectares without decimal places. */
+  formatAsInteger?: boolean
 }
 
 /** Mock values used when the totalizers API does not respond. */
@@ -64,6 +66,7 @@ export function resolveHomeKpis(
   kpiConfig: HomeKpisConfig = FALLBACK_INSTALLATION_CONFIG.kpis,
 ): KpiItem[] {
   const maxCards = clampMaxCards(kpiConfig.maxCards)
+  const primaryCode = kpiConfig.primaryCode || PRIMARY_KPI_CODE
   const orderedCards = orderKpiCards(kpiConfig)
 
   if (!orderedCards.length) {
@@ -76,7 +79,9 @@ export function resolveHomeKpis(
       .map((item) => [item.code as string, item]),
   )
 
-  return orderedCards.slice(0, maxCards).map((card) => toKpiItem(card, valuesByCode.get(card.code)))
+  return orderedCards
+    .slice(0, maxCards)
+    .map((card) => toKpiItem(card, valuesByCode.get(card.code), primaryCode))
 }
 
 function clampMaxCards(maxCards: number): number {
@@ -102,7 +107,11 @@ function orderKpiCards(kpiConfig: HomeKpisConfig): KpiCardConfig[] {
   return [primary, ...others]
 }
 
-function toKpiItem(card: KpiCardConfig, totalizer?: TotalizerDTO): KpiItem {
+function toKpiItem(
+  card: KpiCardConfig,
+  totalizer?: TotalizerDTO,
+  primaryCode: string = PRIMARY_KPI_CODE,
+): KpiItem {
   const optionalValue = resolveOptionalValue(totalizer)
 
   return {
@@ -116,6 +125,7 @@ function toKpiItem(card: KpiCardConfig, totalizer?: TotalizerDTO): KpiItem {
         : (card.optionalLabel ?? totalizer?.subItemName ?? undefined) || undefined,
     optionalValue,
     accentColor: card.accentColor,
+    formatAsInteger: card.code === primaryCode,
   }
 }
 
