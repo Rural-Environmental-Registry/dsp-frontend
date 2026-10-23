@@ -221,6 +221,30 @@ describe('HomeView', () => {
     })
   })
 
+  it('should show identifier-not-found feedback above the map without error styling', async () => {
+    vi.mocked(getDetailsByIdentifier).mockResolvedValue(null)
+
+    const wrapper = await mountHome()
+    const searchFilter = wrapper.findComponent(SearchFilterComponent)
+
+    await searchFilter.vm.$emit('search', {
+      level1: '',
+      level2: [],
+      level3: [],
+      identifier: 'UNKNOWN-ID',
+    })
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('No matching area of interest')
+    expect(wrapper.text()).toContain(
+      'Try a different identifier, or use territory filters or the map to explore.',
+    )
+    expect(wrapper.find('.status-msg--error').exists()).toBe(false)
+    expect(wrapper.find('.home-outcome-feedback-panel').exists()).toBe(true)
+    expect(wrapper.find('.data-cards-section').exists()).toBe(false)
+    expect(wrapper.findComponent(DetailSearchComponent).exists()).toBe(false)
+  })
+
   it('should render detail panel when identifier search succeeds', async () => {
     vi.mocked(getDetailsByIdentifier).mockResolvedValue({
       id: 'DF123456789012',
@@ -428,7 +452,7 @@ describe('HomeView', () => {
     expect(wrapper.text()).toContain('No area of interest found')
     expect(wrapper.text()).toContain('Try selecting another location on the map.')
     expect(wrapper.find('.status-msg--error').exists()).toBe(false)
-    expect(wrapper.find('.map-feedback-panel').exists()).toBe(true)
+    expect(wrapper.find('.home-outcome-feedback-panel').exists()).toBe(true)
     expect(clearSelection).toHaveBeenCalled()
     expect(wrapper.findComponent(DetailSearchComponent).exists()).toBe(false)
     expect(wrapper.text()).toContain('Registered properties')
@@ -521,7 +545,9 @@ describe('HomeView', () => {
     await map.vm.$emit('zoom-insufficient')
     await flushPromises()
 
-    expect(wrapper.text()).toContain('Zoom in to select an area of interest')
+    expect(wrapper.text()).toContain(
+      'An area of interest cannot be selected at this zoom level',
+    )
     expect(wrapper.find('.data-cards-section').exists()).toBe(false)
     expect(searchFilter.vm.form.identifier).toBe('')
   })
@@ -534,8 +560,10 @@ describe('HomeView', () => {
     await map.vm.$emit('zoom-insufficient')
     await flushPromises()
 
-    expect(wrapper.text()).toContain('Zoom in to select an area of interest')
-    expect(wrapper.find('.map-feedback-panel').exists()).toBe(true)
+    expect(wrapper.text()).toContain(
+      'An area of interest cannot be selected at this zoom level',
+    )
+    expect(wrapper.find('.home-outcome-feedback-panel').exists()).toBe(true)
     expect(searchFilter.text()).not.toContain('Clear')
     expect(clearSelection).toHaveBeenCalled()
   })
@@ -551,7 +579,9 @@ describe('HomeView', () => {
     await map.vm.$emit('zoom-insufficient')
     await flushPromises()
 
-    expect(wrapper.text()).toContain('Zoom in to select an area of interest')
+    expect(wrapper.text()).toContain(
+      'An area of interest cannot be selected at this zoom level',
+    )
 
     const clearButton = searchFilter
       .findAll('button')
@@ -561,8 +591,10 @@ describe('HomeView', () => {
     await clearButton!.trigger('click')
     await flushPromises()
 
-    expect(wrapper.text()).not.toContain('Zoom in to select an area of interest')
-    expect(wrapper.find('.map-feedback-panel').exists()).toBe(false)
+    expect(wrapper.text()).not.toContain(
+      'An area of interest cannot be selected at this zoom level',
+    )
+    expect(wrapper.find('.home-outcome-feedback-panel').exists()).toBe(false)
   })
 
   it('should remove previous detail panel when map click finds no aoi', async () => {

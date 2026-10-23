@@ -24,6 +24,22 @@ vi.mock('@fortawesome/vue-fontawesome', () => ({
   },
 }))
 
+async function selectSearchableOption(
+  wrapper: ReturnType<typeof mount>,
+  triggerId: string,
+  value: string,
+): Promise<void> {
+  await wrapper.find(`#${triggerId}`).trigger('click')
+  await flushPromises()
+  await wrapper.find(`[data-value="${value}"]`).trigger('click')
+  await flushPromises()
+}
+
+async function selectLevel1AndLevel2(wrapper: ReturnType<typeof mount>) {
+  await selectSearchableOption(wrapper, 'download-level1', '3')
+  await selectSearchableOption(wrapper, 'download-level2', 'ST01')
+}
+
 describe('DownloadsFilterPanel', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -45,7 +61,7 @@ describe('DownloadsFilterPanel', () => {
     })
   })
 
-  it('should show level1 chips and reveal level2 chips after selection', async () => {
+  it('should show all filter fields after level1 options load', async () => {
     const wrapper = mount(DownloadsFilterPanel, {
       props: {
         themeOptions: [{ value: 'theme_alpha', label: 'Theme Alpha' }],
@@ -54,20 +70,19 @@ describe('DownloadsFilterPanel', () => {
     await flushPromises()
 
     expect(getTerritoryOptions).toHaveBeenCalledWith('level1')
-    expect(wrapper.text()).toContain('North')
-    expect(wrapper.text()).toContain('Central')
-    expect(wrapper.text()).not.toContain('State One')
+    expect(wrapper.find('#download-level1').exists()).toBe(true)
+    expect(wrapper.find('#download-level2').exists()).toBe(true)
+    expect(wrapper.find('#download-level3').exists()).toBe(true)
+    expect(wrapper.find('#download-theme').exists()).toBe(true)
+    expect(wrapper.text()).toContain('Filter by')
+    expect(wrapper.text()).toContain('Select the level 1 you want to access for Downloads')
 
-    const level1Buttons = wrapper.findAll('.chip-btn')
-    await level1Buttons[1].trigger('click')
-    await flushPromises()
+    await selectSearchableOption(wrapper, 'download-level1', '3')
 
     expect(getTerritoryOptions).toHaveBeenCalledWith('level2', '3')
-    expect(wrapper.text()).toContain('State One')
-    expect(wrapper.text()).not.toContain('Filter by')
   })
 
-  it('should reveal filters without search when level2 is selected', async () => {
+  it('should emit selection-change without search when level2 is selected', async () => {
     const wrapper = mount(DownloadsFilterPanel, {
       props: {
         themeOptions: [{ value: 'theme_alpha', label: 'Theme Alpha' }],
@@ -75,18 +90,9 @@ describe('DownloadsFilterPanel', () => {
     })
     await flushPromises()
 
-    const chips = wrapper.findAll('.chip-btn')
-    await chips[1].trigger('click')
-    await flushPromises()
-
-    const level2Chip = wrapper
-      .findAll('.chip-btn')
-      .find((button) => button.text().includes('State One'))
-    await level2Chip!.trigger('click')
-    await flushPromises()
+    await selectLevel1AndLevel2(wrapper)
 
     expect(getTerritoryOptions).toHaveBeenCalledWith('level3', 'ST01')
-    expect(wrapper.text()).toContain('Filter by')
     expect(wrapper.emitted('search')).toBeFalsy()
     expect(wrapper.emitted('selection-change')).toBeTruthy()
   })
@@ -99,15 +105,7 @@ describe('DownloadsFilterPanel', () => {
     })
     await flushPromises()
 
-    const chips = wrapper.findAll('.chip-btn')
-    await chips[1].trigger('click')
-    await flushPromises()
-
-    const level2Chip = wrapper
-      .findAll('.chip-btn')
-      .find((button) => button.text().includes('State One'))
-    await level2Chip!.trigger('click')
-    await flushPromises()
+    await selectLevel1AndLevel2(wrapper)
 
     const searchButton = wrapper
       .findAll('button')
@@ -133,19 +131,10 @@ describe('DownloadsFilterPanel', () => {
     })
     await flushPromises()
 
-    const chips = wrapper.findAll('.chip-btn')
-    await chips[1].trigger('click')
-    await flushPromises()
+    await selectLevel1AndLevel2(wrapper)
 
-    const level2Chip = wrapper
-      .findAll('.chip-btn')
-      .find((button) => button.text().includes('State One'))
-    await level2Chip!.trigger('click')
-    await flushPromises()
-
-    const themeSelect = wrapper.find('#download-theme')
-    await themeSelect.setValue('area_of_interest')
-    await themeSelect.setValue('')
+    await selectSearchableOption(wrapper, 'download-theme', 'area_of_interest')
+    await selectSearchableOption(wrapper, 'download-theme', '')
 
     const searchButton = wrapper
       .findAll('button')
@@ -168,17 +157,9 @@ describe('DownloadsFilterPanel', () => {
     })
     await flushPromises()
 
-    const chips = wrapper.findAll('.chip-btn')
-    await chips[1].trigger('click')
-    await flushPromises()
+    await selectLevel1AndLevel2(wrapper)
 
-    const level2Chip = wrapper
-      .findAll('.chip-btn')
-      .find((button) => button.text().includes('State One'))
-    await level2Chip!.trigger('click')
-    await flushPromises()
-
-    await wrapper.find('#download-level3').setValue('CITY001')
+    await selectSearchableOption(wrapper, 'download-level3', 'CITY001')
 
     const searchButton = wrapper
       .findAll('button')
@@ -207,6 +188,12 @@ describe('DownloadsFilterPanel', () => {
     const wrapper = mount(DownloadsFilterPanel)
     await flushPromises()
 
-    expect(wrapper.findAll('.chip-btn')).toHaveLength(7)
+    await wrapper.find('#download-level1').trigger('click')
+    await flushPromises()
+
+    const options = wrapper.findAll('[data-value]').filter(
+      (node) => node.attributes('data-value') !== '',
+    )
+    expect(options).toHaveLength(7)
   })
 })

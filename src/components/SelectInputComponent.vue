@@ -11,12 +11,14 @@ const props = withDefaults(
     modelValue?: string
     disabled?: boolean
     allowEmptySelection?: boolean
+    hideLabel?: boolean
   }>(),
   {
     placeholder: 'Select',
     modelValue: '',
     disabled: false,
     allowEmptySelection: false,
+    hideLabel: false,
   },
 )
 
@@ -32,7 +34,7 @@ const selectedValue = computed({
 
 <template>
   <div class="flex flex-col w-full">
-    <label class="mb-1 text-sm text-gray-500" :for="id">{{ label }}</label>
+    <label v-if="!hideLabel" class="mb-1 text-sm text-gray-500" :for="id">{{ label }}</label>
     <div class="relative">
       <span
         v-if="$slots.icon"
@@ -43,6 +45,7 @@ const selectedValue = computed({
       <select
         :id="id"
         v-model="selectedValue"
+        :aria-label="hideLabel ? label || placeholder : undefined"
         :disabled="disabled"
         class="h-10 w-full rounded border border-gray-600/80 bg-white px-3 text-sm outline-none focus:border-[#42916e] focus:ring-1 focus:ring-[#42916e] disabled:cursor-not-allowed disabled:bg-gray-100"
         :class="{ 'pl-9': $slots.icon }"
