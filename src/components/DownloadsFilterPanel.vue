@@ -2,8 +2,7 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome'
 import { faSearch } from '@fortawesome/free-solid-svg-icons'
-import HierarchyChipButton from '@/components/HierarchyChipButton.vue'
-import SelectInputComponent from '@/components/SelectInputComponent.vue'
+import SearchableSelectInputComponent from '@/components/SearchableSelectInputComponent.vue'
 import {
   resolveDownloadsUiConfig,
   type DownloadsUiConfig,
@@ -13,7 +12,6 @@ import { getInstallationConfig } from '@/services/configService'
 import { getTerritoryOptions } from '@/services/territoryService'
 import { territoryOptionsToSelectOptions } from '@/adapters/selectOptionAdapters'
 import LoadingDotsComponent from '@/components/LoadingDotsComponent.vue'
-import type { TerritoryOption } from '@/types/territory'
 
 export interface DownloadsFilterPayload {
   level1: string
@@ -43,20 +41,26 @@ const loadingRoot = ref(false)
 const loadingChildren = ref(false)
 const loadError = ref('')
 
-const level1Options = ref<TerritoryOption[]>([])
-const level2Options = ref<TerritoryOption[]>([])
+const level1Options = ref<SelectOption[]>([])
+const level2Options = ref<SelectOption[]>([])
 const level3Options = ref<SelectOption[]>([])
-
-const selectedLevel1Index = ref<number | null>(null)
-const selectedLevel2Index = ref<number | null>(null)
 
 const level1Id = ref('')
 const level2Id = ref('')
 const level3Id = ref('')
 const themeId = ref('')
 
-const hasLevel1 = computed(() => Boolean(level1Id.value))
-const hasLevel2 = computed(() => Boolean(level2Id.value))
+const level1Disabled = computed(() => loadingRoot.value || loadingChildren.value)
+const level2Disabled = computed(
+  () => !level1Id.value || loadingRoot.value || loadingChildren.value,
+)
+const level3Disabled = computed(
+  () => !level2Id.value || loadingRoot.value || loadingChildren.value,
+)
+const themeDisabled = computed(() => loadingRoot.value)
+const searchDisabled = computed(
+  () => !level2Id.value || loadingRoot.value || loadingChildren.value,
+)
 
 const canClearFilters = computed(
   () => Boolean(level3Id.value) || Boolean(themeId.value),
@@ -89,7 +93,8 @@ async function loadLevel1(): Promise<void> {
   loadingRoot.value = true
   loadError.value = ''
   try {
-    level1Options.value = await getTerritoryOptions('level1')
+    const options = await getTerritoryOptions('level1')
+    level1Options.value = territoryOptionsToSelectOptions(options)
   } catch (error) {
     console.error(error)
     loadError.value = 'Could not load level 1. Check if the API is running.'
@@ -99,36 +104,23 @@ async function loadLevel1(): Promise<void> {
   }
 }
 
-async function selectLevel1(option: TerritoryOption, index: number): Promise<void> {
-  selectedLevel1Index.value = index
-  level1Id.value = option.id
-  selectedLevel2Index.value = null
-  level2Id.value = ''
-  level3Id.value = ''
-  themeId.value = ''
-  level3Options.value = []
-
+async function loadLevel2Options(parentId: string): Promise<void> {
   loadingChildren.value = true
   try {
-    level2Options.value = await getTerritoryOptions('level2', option.id)
+    const options = await getTerritoryOptions('level2', parentId)
+    level2Options.value = territoryOptionsToSelectOptions(options)
   } catch (error) {
     console.error(error)
     level2Options.value = []
   } finally {
     loadingChildren.value = false
-    emitSelection()
   }
 }
 
-async function selectLevel2(option: TerritoryOption, index: number): Promise<void> {
-  selectedLevel2Index.value = index
-  level2Id.value = option.id
-  level3Id.value = ''
-  themeId.value = ''
-
+async function loadLevel3Options(parentId: string): Promise<void> {
   loadingChildren.value = true
   try {
-    const cities = await getTerritoryOptions('level3', option.id)
+    const cities = await getTerritoryOptions('level3', parentId)
     level3Options.value = territoryOptionsToSelectOptions(cities)
   } catch (error) {
     console.error(error)
@@ -136,8 +128,6 @@ async function selectLevel2(option: TerritoryOption, index: number): Promise<voi
   } finally {
     loadingChildren.value = false
   }
-
-  emitSelection()
 }
 
 function handleSearch(): void {
@@ -152,83 +142,128 @@ function handleClearFilters(): void {
   emit('search', currentPayload())
 }
 
+watch(level1Id, async (value) => {
+  level2Id.value = ''
+  level3Id.value = ''
+  themeId.value = ''
+  level2Options.value = []
+  level3Options.value = []
+
+  if (!value) {
+    emitSelection()
+    return
+  }
+
+  await loadLevel2Options(value)
+  emitSelection()
+})
+
+watch(level2Id, async (value) => {
+  level3Id.value = ''
+  themeId.value = ''
+  level3Options.value = []
+
+  if (!value) {
+    emitSelection()
+    return
+  }
+
+  await loadLevel3Options(value)
+  emitSelection()
+})
+
 watch(level3Id, () => emitSelection())
 watch(themeId, () => emitSelection())
 </script>
 
 <template>
-  <section class="filter-panel">
+  <section class="filter-panel" aria-label="Downloads filters">
     <div class="filter-panel__inner">
       <p v-if="loadingRoot" class="status-msg"><LoadingDotsComponent /></p>
       <p v-else-if="loadError" class="status-msg status-msg--error">{{ loadError }}</p>
 
       <div v-else class="filter-fields">
-        <div class="level1-block">
-          <p class="block-title">{{ ui.level1Title }}</p>
-          <div class="chips-row">
-            <HierarchyChipButton
-              v-for="(option, index) in level1Options"
-              :key="option.id"
-              :label="option.name"
-              :active="selectedLevel1Index === index"
-              @click="selectLevel1(option, index)"
+        <fieldset class="step-fieldset">
+          <legend class="step-legend">{{ ui.level1Title }}</legend>
+          <div class="hierarchy-select-field">
+            <SearchableSelectInputComponent
+              id="download-level1"
+              v-model="level1Id"
+              hide-label
+              :label="ui.level1Placeholder"
+              :placeholder="ui.level1Placeholder"
+              :items="level1Options"
+              :disabled="level1Disabled"
             />
           </div>
-        </div>
+        </fieldset>
 
-        <div v-if="hasLevel1" class="level2-block">
-          <p class="block-title">{{ ui.level2Title }}</p>
-          <p v-if="loadingChildren && !hasLevel2" class="status-msg"><LoadingDotsComponent /></p>
-          <div v-else class="chips-row">
-            <HierarchyChipButton
-              v-for="(option, index) in level2Options"
-              :key="option.id"
-              :label="option.name"
-              :active="selectedLevel2Index === index"
-              @click="selectLevel2(option, index)"
+        <fieldset class="step-fieldset">
+          <legend class="step-legend">{{ ui.level2Title }}</legend>
+          <p v-if="loadingChildren && level1Id && !level2Id" class="status-msg">
+            <LoadingDotsComponent />
+          </p>
+          <div v-else class="hierarchy-select-field">
+            <SearchableSelectInputComponent
+              id="download-level2"
+              v-model="level2Id"
+              hide-label
+              :label="ui.level2Placeholder"
+              :placeholder="ui.level2Placeholder"
+              :items="level2Options"
+              :disabled="level2Disabled"
             />
           </div>
+        </fieldset>
 
-          <div v-if="hasLevel2" class="filters-block">
-            <h3 class="filter-by">{{ ui.filterByTitle }}</h3>
-            <div class="filters-row">
-              <div class="filter-field">
-                <SelectInputComponent
-                  id="download-level3"
-                  v-model="level3Id"
-                  :label="ui.level3Label"
-                  :placeholder="ui.level3Placeholder"
-                  :items="level3Options"
-                  :disabled="loadingChildren"
-                />
-              </div>
-              <div class="filter-field filter-field--theme">
-                <SelectInputComponent
-                  id="download-theme"
-                  v-model="themeId"
-                  :label="ui.themeLabel"
-                  :placeholder="ui.themePlaceholder"
-                  :items="themeOptions"
-                  allow-empty-selection
-                />
-              </div>
-              <div class="filter-actions">
-                <button type="button" class="br-button primary" @click="handleSearch">
-                  <FontAwesomeIcon :icon="faSearch" class="mr-2" />
-                  {{ ui.searchButton }}
-                </button>
-                <button
-                  v-if="canClearFilters"
-                  type="button"
-                  class="br-button inverted"
-                  @click="handleClearFilters"
-                >
-                  {{ ui.clearButton }}
-                </button>
-              </div>
+        <fieldset class="step-fieldset filters-block">
+          <legend class="step-legend step-legend--emphasis">{{ ui.filterByTitle }}</legend>
+          <p v-if="loadingChildren && level2Id" class="status-msg filters-block__loading">
+            <LoadingDotsComponent />
+          </p>
+          <div class="filters-row">
+            <div class="filter-field filter-field--level3">
+              <SearchableSelectInputComponent
+                id="download-level3"
+                v-model="level3Id"
+                :label="ui.level3Label"
+                :placeholder="ui.level3Placeholder"
+                :items="level3Options"
+                :disabled="level3Disabled"
+              />
+            </div>
+            <div class="filter-field filter-field--theme">
+              <SearchableSelectInputComponent
+                id="download-theme"
+                v-model="themeId"
+                :label="ui.themeLabel"
+                :placeholder="ui.themePlaceholder"
+                :items="themeOptions"
+                allow-empty-selection
+                :disabled="themeDisabled"
+              />
+            </div>
+            <div class="filter-actions">
+              <button
+                type="button"
+                class="br-button primary"
+                :disabled="searchDisabled"
+                @click="handleSearch"
+              >
+                <FontAwesomeIcon :icon="faSearch" class="mr-2" />
+                {{ ui.searchButton }}
+              </button>
+              <button
+                v-if="canClearFilters"
+                type="button"
+                class="br-button inverted"
+                @click="handleClearFilters"
+              >
+                {{ ui.clearButton }}
+              </button>
             </div>
           </div>
-        </div>
+        </fieldset>
       </div>
     </div>
   </section>
@@ -237,50 +272,50 @@ watch(themeId, () => emitSelection())
 <style scoped>
 .filter-panel {
   width: 100%;
-  background: #f2f2f2;
+  background: var(--dsp-filter-bg);
   margin-bottom: 25px;
-  padding-bottom: 8px;
 }
 
 .filter-panel__inner {
-  padding: 16px 15px 10px;
+  margin-inline: min(26px, 3vw);
+  padding-block: 16px;
 }
 
 .filter-fields {
   display: flex;
   flex-direction: column;
-  gap: 30px;
+  gap: 24px;
   padding-top: 6px;
-  background: #f5f3f3;
-  padding: 16px 15px 18px;
-  border-radius: 4px;
 }
 
-.block-title {
+.step-fieldset {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+
+.step-legend {
+  display: block;
+  width: 100%;
   margin: 0 0 12px;
+  padding: 0;
   font-size: 18px;
-  color: #0a0a0a;
+  font-weight: 600;
+  color: #333;
 }
 
-.chips-row {
-  display: flex;
-  flex-direction: row;
-  flex-wrap: wrap;
-  gap: 10px;
+.step-legend--emphasis {
+  margin-bottom: 20px;
 }
 
-.level2-block {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
+.hierarchy-select-field {
+  width: 100%;
+  max-width: 320px;
 }
 
-.filter-by {
-  margin: 14px 0 20px;
-  font-size: 20px;
-  font-weight: 400;
-  color: #0a0a0a;
-  font-weight: bold;
+.filters-block__loading {
+  margin-bottom: 12px;
 }
 
 .filters-row {
@@ -288,27 +323,28 @@ watch(themeId, () => emitSelection())
   flex-direction: row;
   flex-wrap: wrap;
   align-items: flex-end;
-  gap: 25px;
+  gap: 24px;
 }
 
-.filter-field {
+.filter-field--level3 {
   min-width: 220px;
-  width: 260px;
-  flex: 0 1 260px;
+  width: 30%;
+  flex: 1 1 240px;
 }
 
 .filter-field--theme {
-  min-width: 280px;
-  width: 320px;
-  flex: 1 1 320px;
+  width: 25%;
+  min-width: 240px;
+  flex: 1 1 260px;
   max-width: 462px;
 }
 
 .filter-actions {
   display: flex;
-  align-items: center;
+  justify-content: flex-start;
+  align-items: flex-end;
   gap: 16px;
-  min-height: 40px;
+  min-width: 200px;
   padding-bottom: 2px;
 }
 
@@ -322,16 +358,17 @@ watch(themeId, () => emitSelection())
   color: #b9382e;
 }
 
-@media screen and (max-width: 984px) {
-  .chips-row {
-    justify-content: center;
+@media screen and (max-width: 950px) {
+  .hierarchy-select-field {
+    max-width: none;
   }
 
-  .filter-field,
+  .filter-field--level3,
   .filter-field--theme {
     width: 100%;
-    max-width: none;
+    min-width: 100%;
     flex: 1 1 100%;
+    max-width: none;
   }
 }
 </style>
