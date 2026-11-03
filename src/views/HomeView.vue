@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
+import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome'
+import { faTriangleExclamation, faXmark } from '@fortawesome/free-solid-svg-icons'
 import SearchFilterComponent, {
   type SearchFilterPayload,
 } from '@/components/SearchFilterComponent.vue'
@@ -16,11 +18,7 @@ import {
   type SearchFormConfig,
 } from '@/config/searchHierarchy'
 import { prepareAoiHighlightGeometry } from '@/utils/prepareAoiHighlightGeometry'
-import {
-  mockTotalizerValues,
-  resolveHomeKpis,
-  type KpiItem,
-} from '@/config/homeKpis'
+import { resolveHomeKpis, type KpiItem } from '@/config/homeKpis'
 import { FALLBACK_INSTALLATION_CONFIG } from '@/config/installationConfigFallback'
 import { getInstallationConfig } from '@/services/configService'
 import {
@@ -51,6 +49,9 @@ import type { HomeKpisConfig, InstallationConfig } from '@/types/installationCon
 import type { DetailByIdentifierDTO } from '@/types/totalizer'
 import type { TerritoryBoundaryBox } from '@/types/territory'
 import DspMapComponent from '@/components/DspMapComponent.vue'
+import HomeOutcomeFeedbackComponent, {
+  type HomeOutcomeKind,
+} from '@/components/HomeOutcomeFeedbackComponent.vue'
 import MoreContents from '@/components/MoreContents.vue'
 import { getMoreContentsCards } from '@/config/moreContentsUi'
 import { getAboutConfig } from '@/services/aboutService'
@@ -60,6 +61,11 @@ import {
 } from '@/services/downloadService'
 
 const pageCards = ref(getMoreContentsCards('home', false))
+const noticeVisible = ref(true)
+
+function dismissNotice() {
+  noticeVisible.value = false
+}
 onMounted(async () => {
   const aboutConfig = await getAboutConfig()
   pageCards.value = getMoreContentsCards('home', aboutConfig.enabled)
@@ -70,13 +76,15 @@ const AOI_HIGHLIGHT_DARKEN_FILL = 0.6
 
 const searching = ref(false)
 const searchError = ref('')
+const homeOutcomeFeedback = ref<HomeOutcomeKind | null>(null)
+const mapSelectionActive = ref(false)
 const featuresDownloading = ref(false)
 const featuresDownloadError = ref('')
 const detailByIdentifier = ref<DetailByIdentifierDTO | null>(null)
 const pendingDetail = ref<DetailByIdentifierDTO | null>(null)
 const candidateIds = ref<string[]>([])
 const kpiConfig = ref<HomeKpisConfig>(FALLBACK_INSTALLATION_CONFIG.kpis)
-const kpis = ref<KpiItem[]>(resolveHomeKpis(mockTotalizerValues, kpiConfig.value))
+const kpis = ref<KpiItem[]>([])
 const searchConfig = ref<SearchFormConfig>(homeSearchConfig)
 const hierarchyFields = ref<Record<HierarchyLevelKey, HierarchyFieldConfig>>(hierarchyFieldsByKey)
 const mapRef = ref<InstanceType<typeof DspMapComponent> | null>(null)
@@ -154,6 +162,21 @@ function applyDetail(detail: DetailByIdentifierDTO, candidates?: string[]): void
   pendingDetail.value = next
   detailByIdentifier.value = next
   kpis.value = []
+  clearHomeOutcomeFeedback()
+}
+
+async function syncSearchFilterWithDetail(detail: DetailByIdentifierDTO): Promise<void> {
+  const id = detail.id?.trim()
+  if (id) {
+    searchFilterRef.value?.applyIdentifierSelection(id)
+  }
+
+  await searchFilterRef.value?.applyTerritorySelection({
+    level2Id: detail.territory?.level2?.id,
+    level3Id: detail.territory?.level3?.id,
+    level2Label: detail.territory?.level2?.name,
+    level3Label: detail.territory?.level3?.name,
+  })
 }
 
 function clearDetailAndMapSelection(): void {
@@ -161,6 +184,30 @@ function clearDetailAndMapSelection(): void {
   pendingDetail.value = null
   candidateIds.value = []
   mapRef.value?.clearSelection()
+}
+
+function showMapFeedback(kind: 'no-aoi' | 'zoom-required'): void {
+  homeOutcomeFeedback.value = kind
+  detailByIdentifier.value = null
+  pendingDetail.value = null
+  candidateIds.value = []
+  mapRef.value?.clearSelection()
+
+  if (mapSelectionActive.value) {
+    searchFilterRef.value?.clearIdentifierSelection()
+  }
+}
+
+function resetMapSelectionSession(): void {
+  mapSelectionActive.value = false
+}
+
+function clearHomeOutcomeFeedback(): void {
+  homeOutcomeFeedback.value = null
+}
+
+function showIdentifierNotFoundFeedback(): void {
+  homeOutcomeFeedback.value = 'identifier-not-found'
 }
 
 function resolveHighlightStyleFromLayer(
@@ -281,8 +328,8 @@ async function loadInitialKpis(): Promise<void> {
   try {
     await loadTotalizers([], [])
   } catch (error) {
-    console.warn('Initial KPIs from API unavailable — keeping mock values.', error)
-    kpis.value = resolveHomeKpis(mockTotalizerValues, kpiConfig.value)
+    console.warn('Initial KPIs from API unavailable.', error)
+    kpis.value = []
   }
 }
 
@@ -313,6 +360,8 @@ async function loadInitialMapOptions(): Promise<void> {
 const onSearch = async (payload: SearchFilterPayload) => {
   searching.value = true
   searchError.value = ''
+  resetMapSelectionSession()
+  clearHomeOutcomeFeedback()
   clearDetailAndMapSelection()
 
   try {
@@ -321,16 +370,11 @@ const onSearch = async (payload: SearchFilterPayload) => {
     if (identifier) {
       const detail = await getDetailsByIdentifier(identifier)
       if (!detail) {
-        searchError.value = 'Identifier not found.'
+        showIdentifierNotFoundFeedback()
         return
       }
       applyDetail(detail, [detail.id ?? identifier])
-      await searchFilterRef.value?.applyTerritorySelection({
-        level2Id: detail.territory?.level2?.id,
-        level3Id: detail.territory?.level3?.id,
-        level2Label: detail.territory?.level2?.name,
-        level3Label: detail.territory?.level3?.name,
-      })
+      await syncSearchFilterWithDetail(detail)
       try {
         await highlightAoiOnMap(detail)
       } catch (error) {
@@ -364,27 +408,35 @@ const onSearch = async (payload: SearchFilterPayload) => {
 
 const onClear = () => {
   searchError.value = ''
+  featuresDownloadError.value = ''
+  resetMapSelectionSession()
+  clearHomeOutcomeFeedback()
   clearDetailAndMapSelection()
   void loadInitialKpis()
   void zoomToInitialTerritory()
 }
 
+const onZoomInsufficient = (): void => {
+  showMapFeedback('zoom-required')
+}
+
 const onAoiClick = async (coords: { lat: number; lng: number }) => {
   searching.value = true
   searchError.value = ''
-  detailByIdentifier.value = null
 
   try {
     const detail = await getDetailsByCoordinates(coords)
     if (!detail) {
-      searchError.value = 'No area of interest found at this location.'
-      mapRef.value?.clearSelection()
-      pendingDetail.value = null
-      candidateIds.value = []
+      showMapFeedback('no-aoi')
       return
     }
 
+    clearHomeOutcomeFeedback()
     pendingDetail.value = buildDetailWithCandidates(detail)
+    detailByIdentifier.value = null
+    mapSelectionActive.value = true
+    kpis.value = []
+    await syncSearchFilterWithDetail(detail)
     await highlightAoiOnMap(pendingDetail.value, coords)
   } catch (error) {
     console.error(error)
@@ -394,11 +446,14 @@ const onAoiClick = async (coords: { lat: number; lng: number }) => {
   }
 }
 
-const onOpenDetails = () => {
+const onOpenDetails = async () => {
   if (!pendingDetail.value) {
     return
   }
+
+  clearHomeOutcomeFeedback()
   detailByIdentifier.value = pendingDetail.value
+  await syncSearchFilterWithDetail(pendingDetail.value)
 }
 
 const onSelectAoi = async (id: string) => {
@@ -416,6 +471,7 @@ const onSelectAoi = async (id: string) => {
       return
     }
 
+    clearHomeOutcomeFeedback()
     const next = buildDetailWithCandidates(
       detail,
       candidateIds.value.length ? candidateIds.value : undefined,
@@ -423,6 +479,7 @@ const onSelectAoi = async (id: string) => {
     pendingDetail.value = next
     if (detailByIdentifier.value) {
       detailByIdentifier.value = next
+      await syncSearchFilterWithDetail(next)
     }
     await highlightAoiOnMap(next)
   } catch (error) {
@@ -433,8 +490,8 @@ const onSelectAoi = async (id: string) => {
   }
 }
 
-const onDownloadFeatures = async (aoiId: string) => {
-  if (!aoiId?.trim()) {
+const onDownloadFeatures = async (aoiId: string, format: string) => {
+  if (!aoiId?.trim() || !format?.trim()) {
     return
   }
 
@@ -442,7 +499,7 @@ const onDownloadFeatures = async (aoiId: string) => {
   featuresDownloadError.value = ''
 
   try {
-    const { blob, fileName } = await downloadFeaturesBundle(aoiId.trim())
+    const { blob, fileName } = await downloadFeaturesBundle(aoiId.trim(), format.trim())
     triggerBrowserDownload(blob, fileName)
   } catch (error) {
     console.error(error)
@@ -473,6 +530,30 @@ onMounted(async () => {
 
 <template>
   <div class="main-container">
+    <div v-if="noticeVisible" class="br-message warning pii-notice" role="status">
+      <div class="icon" aria-hidden="true">
+        <FontAwesomeIcon :icon="faTriangleExclamation" />
+      </div>
+      <div class="content">
+        <span class="message-title">Notice.</span>
+        <span class="message-body">
+          This system may collect and temporarily store personally identifiable information (PII)
+          necessary for its operation. This information is processed in accordance with applicable
+          law and used exclusively for the system's purposes, and is stored in a secure and
+          controlled manner.
+        </span>
+      </div>
+      <div class="close">
+        <button
+          class="br-button circle small"
+          type="button"
+          aria-label="Dismiss notice"
+          @click="dismissNotice"
+        >
+          <FontAwesomeIcon :icon="faXmark" />
+        </button>
+      </div>
+    </div>
     <div class="banner-container">
       <div class="br-map">
         <img
@@ -486,7 +567,6 @@ onMounted(async () => {
         <h1>
           <strong class="project-name"> Data Sharing Platform</strong>
         </h1>
-        <h2>Public geospatial consultation portal</h2>
       </div>
     </div>
 
@@ -496,6 +576,7 @@ onMounted(async () => {
           ref="searchFilterRef"
           :config="searchConfig"
           :hierarchy-fields="hierarchyFields"
+          :session-active="Boolean(detailByIdentifier || pendingDetail)"
           @search="onSearch"
           @clear="onClear"
         />
@@ -503,7 +584,21 @@ onMounted(async () => {
         <p v-if="searching" class="status-msg"><LoadingDotsComponent /></p>
         <p v-else-if="searchError" class="status-msg status-msg--error">{{ searchError }}</p>
 
-        <section v-else-if="kpis.length && !detailByIdentifier" class="data-cards-section">
+        <HomeOutcomeFeedbackComponent
+          v-if="homeOutcomeFeedback === 'identifier-not-found' && !searching"
+          kind="identifier-not-found"
+        />
+
+        <section
+          v-if="
+            kpis.length &&
+            !detailByIdentifier &&
+            !pendingDetail &&
+            !mapSelectionActive &&
+            homeOutcomeFeedback !== 'identifier-not-found'
+          "
+          class="data-cards-section"
+        >
           <div class="data-cards">
             <div v-for="kpi in kpis" :key="kpi.id" class="data-card-container">
               <KpiCardComponent
@@ -525,6 +620,7 @@ onMounted(async () => {
           :options="mapOptions"
           :busy="searching"
           @aoi-click="onAoiClick"
+          @zoom-insufficient="onZoomInsufficient"
           @open-details="onOpenDetails"
         />
         <div v-else class="dsp-map-placeholder" aria-hidden="true" />
@@ -532,6 +628,14 @@ onMounted(async () => {
         <p v-if="featuresDownloadError" class="features-download-error">
           {{ featuresDownloadError }}
         </p>
+
+        <HomeOutcomeFeedbackComponent
+          v-if="
+            (homeOutcomeFeedback === 'no-aoi' || homeOutcomeFeedback === 'zoom-required') &&
+            !searching
+          "
+          :kind="homeOutcomeFeedback"
+        />
 
         <DetailSearchComponent
           v-if="detailByIdentifier"
@@ -551,6 +655,35 @@ onMounted(async () => {
 .main-container {
   width: 100%;
   background: #fff;
+}
+
+.pii-notice {
+  align-items: center;
+  width: 100%;
+  margin: 0;
+  line-height: 1.45;
+  background: var(--warning-alternative, #fff5c2);
+}
+
+.pii-notice + .banner-container {
+  padding-top: 0;
+}
+
+.pii-notice .icon,
+.pii-notice .close {
+  align-self: center;
+  margin-top: 0;
+  margin-bottom: 0;
+}
+
+.pii-notice .content {
+  background: transparent;
+  text-align: left;
+}
+
+.pii-notice .icon svg {
+  width: 1.25em;
+  height: 1.25em;
 }
 
 .banner-container {
@@ -604,12 +737,6 @@ onMounted(async () => {
 .project-name {
   font-size: clamp(32px, 5vw, 60px);
   font-weight: 600;
-}
-
-.banner-content h2 {
-  margin: 0;
-  font-size: 24px;
-  font-weight: 100;
 }
 
 .main-page-container {

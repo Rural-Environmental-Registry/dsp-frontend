@@ -69,6 +69,7 @@ describe('GeoservicesView', () => {
         themeName: 'Theme Alpha',
         formats: [{ format: 'csv', status: 'available' }],
         lastUpdate: '2026-06-01',
+        lastFileGenerated: '2026-06-02T10:00:00Z',
       },
     ])
   })
@@ -121,9 +122,9 @@ describe('GeoservicesView', () => {
     })
     await flushPromises()
 
-    expect(wrapper.text()).not.toContain('Theme')
     expect(wrapper.text()).not.toContain('Services')
     expect(wrapper.text()).not.toContain('Last update')
+    expect(wrapper.text()).not.toContain('Last file generate')
     expect(wrapper.text()).not.toContain('Theme Alpha')
   })
 

@@ -1,5 +1,7 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref, watch } from 'vue'
+import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome'
+import { faChevronDown, faChevronUp } from '@fortawesome/free-solid-svg-icons'
 import type { DetailByIdentifierDTO } from '@/types/totalizer'
 import {
   buildDetailByIdentifierConfig,
@@ -12,6 +14,7 @@ import { peekInstallationConfig } from '@/services/configService'
 import { formatDate } from '@/utils/dateFormat'
 import { formatPropertyMeasures } from '@/utils/format'
 import LoadingDotsComponent from '@/components/LoadingDotsComponent.vue'
+import { formatDownloadLabel } from '@/config/downloadsUi'
 
 const props = withDefaults(
   defineProps<{
@@ -25,7 +28,7 @@ const props = withDefaults(
 
 const emit = defineEmits<{
   'select-aoi': [id: string]
-  'download-features': [id: string]
+  'download-features': [id: string, format: string]
 }>()
 
 const installation = peekInstallationConfig()
@@ -35,6 +38,17 @@ const headerFields = computed(() => getDetailFieldsByGroup('header', config))
 const propertyRows = computed(() => getPropertyFieldRows(config))
 const otherIds = computed(() =>
   (props.detail.otherIds ?? []).filter((id) => id && id !== props.detail.id),
+)
+const expanded = ref(true)
+const choosingDownload = ref(false)
+
+watch(
+  () => props.downloadingFeatures,
+  (downloading) => {
+    if (downloading) {
+      choosingDownload.value = false
+    }
+  },
 )
 
 function readFieldValue(field: DetailFieldConfig): string {
@@ -64,7 +78,16 @@ function onDownloadFeatures(): void {
   if (!id || !config.featuresDownload.enabled || props.downloadingFeatures) {
     return
   }
-  emit('download-features', id)
+  choosingDownload.value = !choosingDownload.value
+}
+
+function onChooseDownload(format: string): void {
+  const id = props.detail.id?.trim()
+  if (!id || !config.featuresDownload.enabled || props.downloadingFeatures) {
+    return
+  }
+  choosingDownload.value = false
+  emit('download-features', id, format)
 }
 </script>
 
@@ -73,9 +96,26 @@ function onDownloadFeatures(): void {
     class="details-panel dsp-aoi-details-panel"
     :aria-label="config.sectionTitle"
   >
-    <h2 class="section-title">{{ config.sectionTitle }}</h2>
+    <button
+      type="button"
+      class="section-toggle"
+      :aria-expanded="expanded"
+      :aria-controls="`detail-panel-content-${detail.id ?? 'aoi'}`"
+      @click="expanded = !expanded"
+    >
+      <span class="section-title">{{ config.sectionTitle }}</span>
+      <FontAwesomeIcon
+        :icon="expanded ? faChevronUp : faChevronDown"
+        class="section-toggle__icon"
+        aria-hidden="true"
+      />
+    </button>
 
-    <div class="details-card">
+    <div
+      v-show="expanded"
+      :id="`detail-panel-content-${detail.id ?? 'aoi'}`"
+      class="details-card"
+    >
       <div
         v-if="headerFields.length"
         class="header-detail"
@@ -116,7 +156,7 @@ function onDownloadFeatures(): void {
       </div>
 
       <div v-if="otherIds.length" class="other-aois">
-        <p class="other-aois__label">Outros próximos</p>
+        <p class="other-aois__label">Nearby areas</p>
         <div class="other-aois__list">
           <button
             v-for="id in otherIds"
@@ -141,6 +181,17 @@ function onDownloadFeatures(): void {
           <LoadingDotsComponent v-if="downloadingFeatures" />
           <template v-else>{{ config.featuresDownload.label }}</template>
         </button>
+        <div v-if="choosingDownload && !downloadingFeatures" class="download-choices">
+          <button
+            v-for="format in ['csv', 'gpkg']"
+            :key="format"
+            type="button"
+            class="download-choice"
+            @click="onChooseDownload(format)"
+          >
+            {{ formatDownloadLabel(format) }}
+          </button>
+        </div>
       </div>
     </div>
   </section>
@@ -148,22 +199,49 @@ function onDownloadFeatures(): void {
 
 <style scoped>
 .details-panel {
-  margin-bottom: 24px;
+  margin: 20px 0 24px;
+  border: 1px solid #70707045;
+  border-radius: 8px;
+  padding: 15px;
+  background: #fff;
+}
+
+.section-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+}
+
+.section-toggle:focus-visible {
+  outline: 2px solid #42916e;
+  outline-offset: 2px;
 }
 
 .section-title {
-  margin: 0 0 12px;
+  margin: 0;
   font-size: 20px;
   color: #42916e;
   font-weight: 600;
   text-transform: uppercase;
 }
 
+.section-toggle__icon {
+  color: #42916e;
+  font-size: 16px;
+  flex-shrink: 0;
+  margin-left: 12px;
+}
+
 .details-card {
-  border: 1px solid #70707045;
-  border-radius: 8px;
-  padding: 20px 24px 24px;
-  background: #fff;
+  margin-top: 12px;
+  padding: 4px 15px 15px;
 }
 
 .header-detail {
@@ -254,11 +332,30 @@ function onDownloadFeatures(): void {
 
 .actions {
   display: flex;
-  flex-direction: row;
+  flex-direction: column;
   flex-wrap: wrap;
   justify-content: flex-start;
   align-items: flex-start;
-  gap: 16px;
+  gap: 12px;
+}
+
+.download-choices {
+  display: flex;
+  gap: 24px;
+}
+
+.download-choice {
+  padding: 0;
+  border: none;
+  background: none;
+  color: #0a2f6b;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.download-choice:hover {
+  text-decoration: underline;
 }
 
 .details-card .actions .br-button {

@@ -221,6 +221,30 @@ describe('HomeView', () => {
     })
   })
 
+  it('should show identifier-not-found feedback above the map without error styling', async () => {
+    vi.mocked(getDetailsByIdentifier).mockResolvedValue(null)
+
+    const wrapper = await mountHome()
+    const searchFilter = wrapper.findComponent(SearchFilterComponent)
+
+    await searchFilter.vm.$emit('search', {
+      level1: '',
+      level2: [],
+      level3: [],
+      identifier: 'UNKNOWN-ID',
+    })
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('No matching area of interest')
+    expect(wrapper.text()).toContain(
+      'Try a different identifier, or use territory filters or the map to explore.',
+    )
+    expect(wrapper.find('.status-msg--error').exists()).toBe(false)
+    expect(wrapper.find('.home-outcome-feedback-panel').exists()).toBe(true)
+    expect(wrapper.find('.data-cards-section').exists()).toBe(false)
+    expect(wrapper.findComponent(DetailSearchComponent).exists()).toBe(false)
+  })
+
   it('should render detail panel when identifier search succeeds', async () => {
     vi.mocked(getDetailsByIdentifier).mockResolvedValue({
       id: 'DF123456789012',
@@ -293,10 +317,10 @@ describe('HomeView', () => {
     await flushPromises()
 
     const detail = wrapper.findComponent(DetailSearchComponent)
-    await detail.vm.$emit('download-features', 'DF123456789012')
+    await detail.vm.$emit('download-features', 'DF123456789012', 'csv')
     await flushPromises()
 
-    expect(downloadFeaturesBundle).toHaveBeenCalledWith('DF123456789012')
+    expect(downloadFeaturesBundle).toHaveBeenCalledWith('DF123456789012', 'csv')
     expect(triggerBrowserDownload).toHaveBeenCalled()
   })
 
@@ -331,6 +355,7 @@ describe('HomeView', () => {
     const wrapper = await mountHome()
 
     const map = wrapper.findComponent({ name: 'DspMapComponent' })
+    const searchFilter = wrapper.findComponent(SearchFilterComponent)
     await map.vm.$emit('aoi-click', { lat: -15.75, lng: -47.85 })
     await flushPromises()
 
@@ -346,16 +371,18 @@ describe('HomeView', () => {
     expect(showSelectedAoiGeometry).toHaveBeenCalled()
     expect(showDetailButton).toHaveBeenCalled()
     expect(wrapper.text()).not.toContain('Search details')
-    expect(wrapper.text()).not.toContain('Outros próximos')
-    expect(wrapper.text()).toContain('Registered properties')
+    expect(wrapper.text()).not.toContain('Nearby areas')
+    expect(wrapper.find('.data-cards-section').exists()).toBe(false)
+    expect(wrapper.text()).not.toContain('Registered properties')
+    expect(searchFilter.vm.form.identifier).toBe('DF-123')
+    expect(searchFilter.vm.form.level2).toEqual(['DF'])
+    expect(searchFilter.vm.form.level3).toEqual(['5300108'])
 
     await map.vm.$emit('open-details')
     await flushPromises()
 
-    expect(wrapper.find('.data-cards-section').exists()).toBe(false)
-    expect(wrapper.text()).not.toContain('Registered properties')
     expect(wrapper.text()).toContain('DF-123')
-    expect(wrapper.text()).toContain('Outros próximos')
+    expect(wrapper.text()).toContain('Nearby areas')
     expect(wrapper.text()).toContain('DF-456')
 
     const otherBtn = wrapper
@@ -372,13 +399,255 @@ describe('HomeView', () => {
     )
     expect(showSelectedAoiGeometry).toHaveBeenCalled()
     expect(wrapper.text()).toContain('DF-456')
+    expect(searchFilter.vm.form.identifier).toBe('DF-456')
+  })
+
+  it('should show clear button and reset state after opening map details', async () => {
+    vi.mocked(getDetailsByCoordinates).mockResolvedValue({
+      id: 'DF-123',
+      registrationDate: '2020-01-10',
+      territory: {
+        level2: { id: 'DF', name: 'Distrito Federal' },
+        level3: { id: '5300108', name: 'Brasília' },
+      },
+      latitude: '-15.75',
+      longitude: '-47.85',
+      area: 120.5,
+      alterationDate: '2024-06-15',
+    })
+
+    const wrapper = await mountHome()
+    const searchFilter = wrapper.findComponent(SearchFilterComponent)
+    const map = wrapper.findComponent({ name: 'DspMapComponent' })
+
+    await map.vm.$emit('aoi-click', { lat: -15.75, lng: -47.85 })
+    await flushPromises()
+    await map.vm.$emit('open-details')
+    await flushPromises()
+
+    const clearButton = searchFilter
+      .findAll('button')
+      .find((button) => button.text().includes('Clear'))
+    expect(clearButton).toBeTruthy()
+
+    await clearButton!.trigger('click')
+    await flushPromises()
+
+    expect(clearSelection).toHaveBeenCalled()
+    expect(wrapper.text()).not.toContain('Search details')
+    expect(wrapper.text()).toContain('Registered properties')
+    expect(searchFilter.vm.form.identifier).toBe('')
+    expect(searchFilter.vm.form.level2).toEqual([])
+  })
+
+  it('should show no-aoi feedback below the map without error styling above it', async () => {
+    vi.mocked(getDetailsByCoordinates).mockResolvedValue(null)
+
+    const wrapper = await mountHome()
+    const map = wrapper.findComponent({ name: 'DspMapComponent' })
+
+    await map.vm.$emit('aoi-click', { lat: -15.75, lng: -47.85 })
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('No area of interest found')
+    expect(wrapper.text()).toContain('Try selecting another location on the map.')
+    expect(wrapper.find('.status-msg--error').exists()).toBe(false)
+    expect(wrapper.find('.home-outcome-feedback-panel').exists()).toBe(true)
+    expect(clearSelection).toHaveBeenCalled()
+    expect(wrapper.findComponent(DetailSearchComponent).exists()).toBe(false)
+    expect(wrapper.text()).toContain('Registered properties')
+  })
+
+  it('should keep KPIs visible when no-aoi click happens without prior map selection', async () => {
+    vi.mocked(getDetailsByCoordinates).mockResolvedValue(null)
+
+    const wrapper = await mountHome()
+    const searchFilter = wrapper.findComponent(SearchFilterComponent)
+    const map = wrapper.findComponent({ name: 'DspMapComponent' })
+
+    await searchFilter.vm.$emit('search', {
+      level1: '',
+      level2: ['DF'],
+      level3: [],
+      identifier: '',
+    })
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('Registered properties')
+
+    await map.vm.$emit('aoi-click', { lat: -15.75, lng: -47.85 })
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('No area of interest found')
+    expect(wrapper.text()).toContain('Registered properties')
+  })
+
+  it('should hide KPIs and clear identifier when no-aoi click follows map selection', async () => {
+    vi.mocked(getDetailsByCoordinates)
+      .mockResolvedValueOnce({
+        id: 'DF-123',
+        registrationDate: '2020-01-10',
+        territory: {
+          level2: { id: 'DF', name: 'Distrito Federal' },
+          level3: { id: '5300108', name: 'Brasília' },
+        },
+        latitude: '-15.75',
+        longitude: '-47.85',
+        area: 120.5,
+        alterationDate: '2024-06-15',
+      })
+      .mockResolvedValueOnce(null)
+
+    const wrapper = await mountHome()
+    const map = wrapper.findComponent({ name: 'DspMapComponent' })
+    const searchFilter = wrapper.findComponent(SearchFilterComponent)
+
+    await map.vm.$emit('aoi-click', { lat: -15.75, lng: -47.85 })
+    await flushPromises()
+
+    expect(wrapper.find('.data-cards-section').exists()).toBe(false)
+    expect(searchFilter.vm.form.identifier).toBe('DF-123')
+
+    await map.vm.$emit('aoi-click', { lat: -16.0, lng: -48.0 })
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('No area of interest found')
+    expect(wrapper.find('.data-cards-section').exists()).toBe(false)
+    expect(searchFilter.vm.form.identifier).toBe('')
+    expect(searchFilter.vm.form.level2).toEqual(['DF'])
+    expect(searchFilter.vm.form.level3).toEqual(['5300108'])
+  })
+
+  it('should hide KPIs and clear identifier when zoom feedback follows map selection', async () => {
+    vi.mocked(getDetailsByCoordinates).mockResolvedValue({
+      id: 'DF-123',
+      registrationDate: '2020-01-10',
+      territory: {
+        level2: { id: 'DF', name: 'Distrito Federal' },
+        level3: { id: '5300108', name: 'Brasília' },
+      },
+      latitude: '-15.75',
+      longitude: '-47.85',
+      area: 120.5,
+      alterationDate: '2024-06-15',
+    })
+
+    const wrapper = await mountHome()
+    const map = wrapper.findComponent({ name: 'DspMapComponent' })
+    const searchFilter = wrapper.findComponent(SearchFilterComponent)
+
+    await map.vm.$emit('aoi-click', { lat: -15.75, lng: -47.85 })
+    await flushPromises()
+
+    expect(wrapper.find('.data-cards-section').exists()).toBe(false)
+    expect(searchFilter.vm.form.identifier).toBe('DF-123')
+
+    await map.vm.$emit('zoom-insufficient')
+    await flushPromises()
+
+    expect(wrapper.text()).toContain(
+      'An area of interest cannot be selected at this zoom level',
+    )
+    expect(wrapper.find('.data-cards-section').exists()).toBe(false)
+    expect(searchFilter.vm.form.identifier).toBe('')
+  })
+
+  it('should show zoom feedback below the map without showing clear for map-only interaction', async () => {
+    const wrapper = await mountHome()
+    const map = wrapper.findComponent({ name: 'DspMapComponent' })
+    const searchFilter = wrapper.findComponent(SearchFilterComponent)
+
+    await map.vm.$emit('zoom-insufficient')
+    await flushPromises()
+
+    expect(wrapper.text()).toContain(
+      'An area of interest cannot be selected at this zoom level',
+    )
+    expect(wrapper.find('.home-outcome-feedback-panel').exists()).toBe(true)
+    expect(searchFilter.text()).not.toContain('Clear')
+    expect(clearSelection).toHaveBeenCalled()
+  })
+
+  it('should clear map feedback when clear is clicked while search filters are active', async () => {
+    const wrapper = await mountHome()
+    const map = wrapper.findComponent({ name: 'DspMapComponent' })
+    const searchFilter = wrapper.findComponent(SearchFilterComponent)
+
+    searchFilter.vm.form.level2 = ['DF']
+    await flushPromises()
+
+    await map.vm.$emit('zoom-insufficient')
+    await flushPromises()
+
+    expect(wrapper.text()).toContain(
+      'An area of interest cannot be selected at this zoom level',
+    )
+
+    const clearButton = searchFilter
+      .findAll('button')
+      .find((button) => button.text().includes('Clear'))
+    expect(clearButton).toBeTruthy()
+
+    await clearButton!.trigger('click')
+    await flushPromises()
+
+    expect(wrapper.text()).not.toContain(
+      'An area of interest cannot be selected at this zoom level',
+    )
+    expect(wrapper.find('.home-outcome-feedback-panel').exists()).toBe(false)
+  })
+
+  it('should remove previous detail panel when map click finds no aoi', async () => {
+    vi.mocked(getDetailsByCoordinates).mockResolvedValue({
+      id: 'DF-123',
+      registrationDate: '2020-01-10',
+      territory: {
+        level2: { id: 'DF', name: 'Distrito Federal' },
+        level3: { id: '5300108', name: 'Brasília' },
+      },
+      latitude: '-15.75',
+      longitude: '-47.85',
+      area: 120.5,
+      alterationDate: '2024-06-15',
+    })
+
+    const wrapper = await mountHome()
+    const map = wrapper.findComponent({ name: 'DspMapComponent' })
+    const searchFilter = wrapper.findComponent(SearchFilterComponent)
+
+    await map.vm.$emit('aoi-click', { lat: -15.75, lng: -47.85 })
+    await flushPromises()
+    await map.vm.$emit('open-details')
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('DF-123')
+
+    vi.mocked(getDetailsByCoordinates).mockResolvedValue(null)
+    await map.vm.$emit('aoi-click', { lat: -16.0, lng: -48.0 })
+    await flushPromises()
+
+    expect(wrapper.text()).not.toContain('DF-123')
+    expect(wrapper.findComponent(DetailSearchComponent).exists()).toBe(false)
+    expect(wrapper.text()).toContain('No area of interest found')
+    expect(searchFilter.vm.form.identifier).toBe('')
   })
 
   it('should render banner and load initial KPIs', async () => {
     const wrapper = await mountHome()
 
     expect(wrapper.exists()).toBe(true)
+    expect(wrapper.find('.pii-notice').exists()).toBe(true)
+    expect(wrapper.text()).toContain('Notice.')
+    expect(wrapper.text()).toContain('personally identifiable information (PII)')
     expect(wrapper.text()).toContain('Data Sharing Platform')
+    expect(wrapper.text()).not.toContain('Public geospatial consultation portal')
+
+    const notice = wrapper.get('.pii-notice')
+    const title = wrapper.get('.project-name')
+    expect(notice.element.compareDocumentPosition(title.element) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+
+    await wrapper.get('[aria-label="Dismiss notice"]').trigger('click')
+    expect(wrapper.find('.pii-notice').exists()).toBe(false)
 
     const logo = wrapper.find('.br-map img')
     expect(logo.exists()).toBe(true)

@@ -2,7 +2,10 @@
 import { downloadsUiConfig, formatDownloadLabel } from '@/config/downloadsUi'
 import LoadingDotsComponent from '@/components/LoadingDotsComponent.vue'
 import { peekInstallationConfig } from '@/services/configService'
-import type { DownloadAvailabilityStatus, DownloadItemDTO } from '@/types/download'
+import type {
+  DownloadAvailabilityStatus,
+  DownloadItemDTO,
+} from '@/types/download'
 import { formatDate, formatDateTime } from '@/utils/dateFormat'
 
 const props = defineProps<{
@@ -53,6 +56,7 @@ function formatLastUpdate(value: string | null): string {
           <th class="col-topic">{{ ui.columns.topic }}</th>
           <th class="col-services">{{ ui.columns.services }}</th>
           <th class="col-update">{{ ui.columns.lastUpdate }}</th>
+          <th class="col-file-generate">{{ ui.columns.lastFileGenerate }}</th>
         </tr>
       </thead>
       <tbody>
@@ -61,7 +65,7 @@ function formatLastUpdate(value: string | null): string {
           <td class="col-services">
             <div class="btn-geosservices-table">
               <span
-                v-for="formatStatus in item.formats"
+                v-for="formatStatus in item.formats ?? []"
                 :key="formatStatus.format"
                 class="download-format-wrap"
                 :title="formatTooltip(formatStatus.status)"
@@ -84,6 +88,7 @@ function formatLastUpdate(value: string | null): string {
             </div>
           </td>
           <td class="col-update">{{ formatLastUpdate(item.lastUpdate) }}</td>
+          <td class="col-file-generate">{{ formatLastUpdate(item.lastFileGenerated) }}</td>
         </tr>
       </tbody>
     </table>
@@ -103,8 +108,10 @@ function formatLastUpdate(value: string | null): string {
 
 .themes-table {
   width: 100%;
+  table-layout: fixed;
   border-collapse: collapse;
   background: #fff;
+  empty-cells: show;
 }
 
 .themes-table th,
@@ -125,22 +132,26 @@ function formatLastUpdate(value: string | null): string {
   font-size: 16px;
   font-weight: 600;
   color: #0a2f6b;
+  white-space: nowrap;
 }
 
 .col-topic {
-  width: 50%;
+  width: 34%;
   text-align: left;
 }
 
 .themes-table th.col-services,
 .themes-table td.col-services {
-  width: 30%;
+  width: 22%;
   text-align: center;
 }
 
-.col-update {
-  width: 20%;
+.col-update,
+.col-file-generate {
+  width: 22%;
+  min-width: 160px;
   text-align: left;
+  white-space: nowrap;
 }
 
 .btn-geosservices-table {
