@@ -609,6 +609,7 @@ onMounted(async () => {
                 :optional-label="kpi.optionalLabel"
                 :optional-value="kpi.optionalValue"
                 :accent-color="kpi.accentColor"
+                :format-as-integer="kpi.formatAsInteger"
               />
             </div>
           </div>
