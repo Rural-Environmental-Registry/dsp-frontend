@@ -4,8 +4,13 @@ import { buildHierarchyFieldsByKey, buildSearchFormConfig } from '@/config/searc
 
 export interface DownloadsUiConfig {
   bannerTitle: string
+  formTitle: string
   level1Title: string
   level2Title: string
+  level1Label: string
+  level2Label: string
+  level1Placeholder: string
+  level2Placeholder: string
   filterByTitle: string
   level3Label: string
   level3Placeholder: string
@@ -57,12 +62,17 @@ export function resolveDownloadsUiConfig(
 
   return {
     ...STATIC_DOWNLOADS_UI,
+    formTitle: downloadsScreen.title,
+    level1Label: fields.level1.label,
+    level2Label: fields.level2.label,
     level1Title:
       downloadsScreen.level1SectionTitle ??
       `Select the ${fields.level1.label} you want to access for Downloads`,
     level2Title:
       downloadsScreen.level2SectionTitle ??
       `Options for the selected ${fields.level1.label}`,
+    level1Placeholder: fields.level1.placeholder,
+    level2Placeholder: fields.level2.placeholder,
     filterByTitle: downloadsScreen.filterByTitle ?? 'Filter by:',
     level3Label: fields.level3.label,
     level3Placeholder: fields.level3.placeholder,

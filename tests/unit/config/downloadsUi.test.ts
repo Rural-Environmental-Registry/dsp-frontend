@@ -11,6 +11,9 @@ describe('downloadsUi', () => {
     it('should use configured section titles when provided', () => {
       const config = resolveDownloadsUiConfig(FALLBACK_INSTALLATION_CONFIG)
 
+      expect(config.formTitle).toBe('Download public data')
+      expect(config.level1Label).toBe('Level 1')
+      expect(config.level2Label).toBe('Level 2')
       expect(config.level1Title).toBe(
         'Select the level 1 you want to access for Downloads',
       )

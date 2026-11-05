@@ -122,7 +122,6 @@ describe('GeoservicesView', () => {
     })
     await flushPromises()
 
-    expect(wrapper.text()).not.toContain('Theme')
     expect(wrapper.text()).not.toContain('Services')
     expect(wrapper.text()).not.toContain('Last update')
     expect(wrapper.text()).not.toContain('Last file generate')

@@ -18,11 +18,7 @@ import {
   type SearchFormConfig,
 } from '@/config/searchHierarchy'
 import { prepareAoiHighlightGeometry } from '@/utils/prepareAoiHighlightGeometry'
-import {
-  mockTotalizerValues,
-  resolveHomeKpis,
-  type KpiItem,
-} from '@/config/homeKpis'
+import { resolveHomeKpis, type KpiItem } from '@/config/homeKpis'
 import { FALLBACK_INSTALLATION_CONFIG } from '@/config/installationConfigFallback'
 import { getInstallationConfig } from '@/services/configService'
 import {
@@ -53,9 +49,9 @@ import type { HomeKpisConfig, InstallationConfig } from '@/types/installationCon
 import type { DetailByIdentifierDTO } from '@/types/totalizer'
 import type { TerritoryBoundaryBox } from '@/types/territory'
 import DspMapComponent from '@/components/DspMapComponent.vue'
-import MapInteractionFeedbackComponent, {
-  type MapFeedbackKind,
-} from '@/components/MapInteractionFeedbackComponent.vue'
+import HomeOutcomeFeedbackComponent, {
+  type HomeOutcomeKind,
+} from '@/components/HomeOutcomeFeedbackComponent.vue'
 import MoreContents from '@/components/MoreContents.vue'
 import { getMoreContentsCards } from '@/config/moreContentsUi'
 import { getAboutConfig } from '@/services/aboutService'
@@ -80,7 +76,7 @@ const AOI_HIGHLIGHT_DARKEN_FILL = 0.6
 
 const searching = ref(false)
 const searchError = ref('')
-const mapFeedback = ref<MapFeedbackKind | null>(null)
+const homeOutcomeFeedback = ref<HomeOutcomeKind | null>(null)
 const mapSelectionActive = ref(false)
 const featuresDownloading = ref(false)
 const featuresDownloadError = ref('')
@@ -88,7 +84,7 @@ const detailByIdentifier = ref<DetailByIdentifierDTO | null>(null)
 const pendingDetail = ref<DetailByIdentifierDTO | null>(null)
 const candidateIds = ref<string[]>([])
 const kpiConfig = ref<HomeKpisConfig>(FALLBACK_INSTALLATION_CONFIG.kpis)
-const kpis = ref<KpiItem[]>(resolveHomeKpis(mockTotalizerValues, kpiConfig.value))
+const kpis = ref<KpiItem[]>([])
 const searchConfig = ref<SearchFormConfig>(homeSearchConfig)
 const hierarchyFields = ref<Record<HierarchyLevelKey, HierarchyFieldConfig>>(hierarchyFieldsByKey)
 const mapRef = ref<InstanceType<typeof DspMapComponent> | null>(null)
@@ -166,7 +162,7 @@ function applyDetail(detail: DetailByIdentifierDTO, candidates?: string[]): void
   pendingDetail.value = next
   detailByIdentifier.value = next
   kpis.value = []
-  clearMapFeedback()
+  clearHomeOutcomeFeedback()
 }
 
 async function syncSearchFilterWithDetail(detail: DetailByIdentifierDTO): Promise<void> {
@@ -190,8 +186,8 @@ function clearDetailAndMapSelection(): void {
   mapRef.value?.clearSelection()
 }
 
-function showMapFeedback(kind: MapFeedbackKind): void {
-  mapFeedback.value = kind
+function showMapFeedback(kind: 'no-aoi' | 'zoom-required'): void {
+  homeOutcomeFeedback.value = kind
   detailByIdentifier.value = null
   pendingDetail.value = null
   candidateIds.value = []
@@ -206,8 +202,12 @@ function resetMapSelectionSession(): void {
   mapSelectionActive.value = false
 }
 
-function clearMapFeedback(): void {
-  mapFeedback.value = null
+function clearHomeOutcomeFeedback(): void {
+  homeOutcomeFeedback.value = null
+}
+
+function showIdentifierNotFoundFeedback(): void {
+  homeOutcomeFeedback.value = 'identifier-not-found'
 }
 
 function resolveHighlightStyleFromLayer(
@@ -328,8 +328,8 @@ async function loadInitialKpis(): Promise<void> {
   try {
     await loadTotalizers([], [])
   } catch (error) {
-    console.warn('Initial KPIs from API unavailable — keeping mock values.', error)
-    kpis.value = resolveHomeKpis(mockTotalizerValues, kpiConfig.value)
+    console.warn('Initial KPIs from API unavailable.', error)
+    kpis.value = []
   }
 }
 
@@ -361,7 +361,7 @@ const onSearch = async (payload: SearchFilterPayload) => {
   searching.value = true
   searchError.value = ''
   resetMapSelectionSession()
-  clearMapFeedback()
+  clearHomeOutcomeFeedback()
   clearDetailAndMapSelection()
 
   try {
@@ -370,7 +370,7 @@ const onSearch = async (payload: SearchFilterPayload) => {
     if (identifier) {
       const detail = await getDetailsByIdentifier(identifier)
       if (!detail) {
-        searchError.value = 'Identifier not found.'
+        showIdentifierNotFoundFeedback()
         return
       }
       applyDetail(detail, [detail.id ?? identifier])
@@ -410,7 +410,7 @@ const onClear = () => {
   searchError.value = ''
   featuresDownloadError.value = ''
   resetMapSelectionSession()
-  clearMapFeedback()
+  clearHomeOutcomeFeedback()
   clearDetailAndMapSelection()
   void loadInitialKpis()
   void zoomToInitialTerritory()
@@ -431,7 +431,7 @@ const onAoiClick = async (coords: { lat: number; lng: number }) => {
       return
     }
 
-    clearMapFeedback()
+    clearHomeOutcomeFeedback()
     pendingDetail.value = buildDetailWithCandidates(detail)
     detailByIdentifier.value = null
     mapSelectionActive.value = true
@@ -451,7 +451,7 @@ const onOpenDetails = async () => {
     return
   }
 
-  clearMapFeedback()
+  clearHomeOutcomeFeedback()
   detailByIdentifier.value = pendingDetail.value
   await syncSearchFilterWithDetail(pendingDetail.value)
 }
@@ -471,7 +471,7 @@ const onSelectAoi = async (id: string) => {
       return
     }
 
-    clearMapFeedback()
+    clearHomeOutcomeFeedback()
     const next = buildDetailWithCandidates(
       detail,
       candidateIds.value.length ? candidateIds.value : undefined,
@@ -584,8 +584,19 @@ onMounted(async () => {
         <p v-if="searching" class="status-msg"><LoadingDotsComponent /></p>
         <p v-else-if="searchError" class="status-msg status-msg--error">{{ searchError }}</p>
 
+        <HomeOutcomeFeedbackComponent
+          v-if="homeOutcomeFeedback === 'identifier-not-found' && !searching"
+          kind="identifier-not-found"
+        />
+
         <section
-          v-else-if="kpis.length && !detailByIdentifier && !pendingDetail && !mapSelectionActive"
+          v-if="
+            kpis.length &&
+            !detailByIdentifier &&
+            !pendingDetail &&
+            !mapSelectionActive &&
+            homeOutcomeFeedback !== 'identifier-not-found'
+          "
           class="data-cards-section"
         >
           <div class="data-cards">
@@ -619,9 +630,12 @@ onMounted(async () => {
           {{ featuresDownloadError }}
         </p>
 
-        <MapInteractionFeedbackComponent
-          v-if="mapFeedback && !searching"
-          :kind="mapFeedback"
+        <HomeOutcomeFeedbackComponent
+          v-if="
+            (homeOutcomeFeedback === 'no-aoi' || homeOutcomeFeedback === 'zoom-required') &&
+            !searching
+          "
+          :kind="homeOutcomeFeedback"
         />
 
         <DetailSearchComponent

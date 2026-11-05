@@ -3,13 +3,14 @@ import { computed } from 'vue'
 import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome'
 import {
   faLocationCrosshairs,
+  faMagnifyingGlass,
   faMagnifyingGlassPlus,
 } from '@fortawesome/free-solid-svg-icons'
 
-export type MapFeedbackKind = 'no-aoi' | 'zoom-required'
+export type HomeOutcomeKind = 'no-aoi' | 'zoom-required' | 'identifier-not-found'
 
 const props = defineProps<{
-  kind: MapFeedbackKind
+  kind: HomeOutcomeKind
 }>()
 
 const contentByKind = {
@@ -23,6 +24,11 @@ const contentByKind = {
     title: 'An area of interest cannot be selected at this zoom level',
     message: 'Get closer to the location you want to inspect and try again.',
   },
+  'identifier-not-found': {
+    icon: faMagnifyingGlass,
+    title: 'No matching area of interest',
+    message: 'Try a different identifier, or use territory filters or the map to explore.',
+  },
 } as const
 
 const content = computed(() => contentByKind[props.kind])
@@ -30,25 +36,25 @@ const content = computed(() => contentByKind[props.kind])
 
 <template>
   <section
-    class="map-feedback-panel"
+    class="home-outcome-feedback-panel"
     role="status"
     aria-live="polite"
     :aria-label="content.title"
   >
     <FontAwesomeIcon
       :icon="content.icon"
-      class="map-feedback-panel__icon"
+      class="home-outcome-feedback-panel__icon"
       aria-hidden="true"
     />
-    <div class="map-feedback-panel__text">
-      <p class="map-feedback-panel__title">{{ content.title }}</p>
-      <p class="map-feedback-panel__message">{{ content.message }}</p>
+    <div class="home-outcome-feedback-panel__text">
+      <p class="home-outcome-feedback-panel__title">{{ content.title }}</p>
+      <p class="home-outcome-feedback-panel__message">{{ content.message }}</p>
     </div>
   </section>
 </template>
 
 <style scoped>
-.map-feedback-panel {
+.home-outcome-feedback-panel {
   display: flex;
   align-items: flex-start;
   gap: 16px;
@@ -60,25 +66,25 @@ const content = computed(() => contentByKind[props.kind])
   background: #fff;
 }
 
-.map-feedback-panel__icon {
+.home-outcome-feedback-panel__icon {
   flex-shrink: 0;
   margin-top: 2px;
   font-size: 22px;
   color: var(--dsp-green, #42916e);
 }
 
-.map-feedback-panel__text {
+.home-outcome-feedback-panel__text {
   min-width: 0;
 }
 
-.map-feedback-panel__title {
+.home-outcome-feedback-panel__title {
   margin: 0 0 6px;
   font-size: 18px;
   font-weight: 600;
   color: #333333;
 }
 
-.map-feedback-panel__message {
+.home-outcome-feedback-panel__message {
   margin: 0;
   font-size: 15px;
   color: #707070;
