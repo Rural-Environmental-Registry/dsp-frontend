@@ -1,14 +1,19 @@
 <script setup lang="ts">
-import { formatValue } from '@/utils/format'
+import { formatValue, formatValueInt } from '@/utils/format'
 
-defineProps<{
+const props = defineProps<{
   title: string
   value: number
   unitOfMeasurement?: string
   optionalLabel?: string
   optionalValue?: number
   accentColor?: string
+  formatAsInteger?: boolean
 }>()
+
+function displayValue(amount: number): string {
+  return props.formatAsInteger ? formatValueInt(amount) : formatValue(amount)
+}
 </script>
 
 <template>
@@ -21,14 +26,14 @@ defineProps<{
     </div>
     <div class="flex flex-col items-center justify-center gap-1 bg-white px-3 py-4">
       <p class="text-xl text-gray-800">
-        {{ formatValue(value) }}
+        {{ displayValue(value) }}
         <span v-if="unitOfMeasurement" class="text-sm">{{ unitOfMeasurement }}</span>
       </p>
       <span
         v-if="optionalLabel !== undefined && optionalValue !== undefined"
         class="text-sm text-gray-500"
       >
-        {{ formatValue(optionalValue) }} {{ optionalLabel }}
+        {{ displayValue(optionalValue) }} {{ optionalLabel }}
       </span>
     </div>
   </div>
