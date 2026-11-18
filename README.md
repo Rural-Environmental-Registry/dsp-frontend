@@ -1,4 +1,4 @@
-# rer-dsp-frontend
+# dsp-frontend
 
 > [!IMPORTANT]
 > This repository is one module of the **DSP (Data Sharing Platform)**, part of the RER ecosystem. Full project documentation lives in **[dsp-docs](https://github.com/Rural-Environmental-Registry/dsp-docs)**. The information below covers this module only, and only briefly.
@@ -73,7 +73,7 @@ Web interface for viewing and sharing rural environmental data among RER partner
 ## Responsibilities
 
 - Display environmental data and maps (WMS layers)
-- Consume the `rer-dsp-backend` REST API
+- Consume the `dsp-backend` REST API
 - Provide the DSP platform user experience
 
 ## Technologies
